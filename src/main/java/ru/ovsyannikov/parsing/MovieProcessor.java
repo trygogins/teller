@@ -14,7 +14,7 @@ public class MovieProcessor {
         Datastore datastore = context.getBean(Datastore.class);
 
         Movie movie = new Movie();
-        movie.setName("Interstellar");
+        movie.setTitle("Interstellar");
 
         datastore.save(movie);
     }

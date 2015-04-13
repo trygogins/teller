@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.ovsyannikov.parsing.exceptions.KinopoiskForbiddenException;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -17,14 +18,44 @@ public class KinopoiskMovieParser {
 
     private static final Logger logger = LoggerFactory.getLogger(KinopoiskMovieParser.class);
 
+    /**
+     * @see #parseMovie(String, boolean)
+     */
     public Movie parseMovie(String url) {
-        Document movieHtmlDocument = getDocument(url);
-
-        System.out.println(movieHtmlDocument);
-        return new Movie();
+        return parseMovie(url, false);
     }
 
-    public Document getDocument(String url) {
+    /**
+     * method for parsing kinopoisk movie url to an object of type Movie
+     * @param url – url to get the document
+     * @param local – parameter to specify, if the document is on WEB, or a local html document
+     * @return object of type Movie
+     */
+    public Movie parseMovie(String url, boolean local) {
+        Document document = local ? getDocument(url) : downloadDocument(url);
+
+        Movie movie = new Movie();
+        movie.fillInFields(document);
+        return movie;
+    }
+
+    /**
+     * parsing local file to document
+     */
+    public Document getDocument(String localUrl) {
+        try {
+            return Jsoup.parse(new File(localUrl), "utf-8", "http://kinopoisk.ru");
+        } catch (IOException e) {
+            logger.error("unable to find local file: {}", localUrl, e);
+            return null;
+        }
+    }
+
+    /**
+     * Establishing Jsoup connection to the given url (using human-like cookies)
+     * @param url – url to request for document
+     */
+    public Document downloadDocument(String url) {
         try {
             Connection.Response response = Jsoup.connect(url)
                     .followRedirects(true)
@@ -45,7 +76,7 @@ public class KinopoiskMovieParser {
 
     public static void main(String[] args) {
         KinopoiskMovieParser movieParser = new KinopoiskMovieParser();
-        Movie movie = movieParser.parseMovie("http://www.kinopoisk.ru/film/252626/");
+        Movie movie = movieParser.parseMovie("/Users/georgii/Dropbox/coursework/filtering/src/main/resources/testpages/into_the_wild.html", true);
         System.out.println(movie);
     }
 }
