@@ -1,6 +1,7 @@
 package ru.ovsyannikov.parsing;
 
 import com.google.code.morphia.annotations.Entity;
+import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonProperty;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -22,10 +23,33 @@ public class Movie {
 
     private static final Logger logger = LoggerFactory.getLogger(Movie.class);
 
+    private Long id;
+    private Long kinopoiskId;
     private String title;
     private String director;
     private List<String> genres;
     private List<String> actors;
+    private Integer year;
+
+    @JsonIgnore
+    public Long getId() {
+        return id;
+    }
+
+    @JsonIgnore
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    @JsonProperty("kinopoisk_id")
+    public Long getKinopoiskId() {
+        return kinopoiskId;
+    }
+
+    @JsonProperty("kinopoisk_id")
+    public void setKinopoiskId(Long kinopoiskId) {
+        this.kinopoiskId = kinopoiskId;
+    }
 
     @JsonProperty("title")
     public String getTitle() {
@@ -38,7 +62,7 @@ public class Movie {
     }
 
     public void setTitle(Document document) {
-        Elements elements = document.select("span[itemprop=alternativeHeadline]");
+        Elements elements = document.select("h1.moviename-big[itemprop=name]");
         if (elements.isEmpty() || elements.size() > 1) {
             throw new IllegalArgumentException("Incorrect number of items for title!");
         }
@@ -101,9 +125,28 @@ public class Movie {
         actors = new ArrayList<>();
         Elements elements = document.select("li[itemprop=actors]");
         // first five characters
-        for (int i = 0; i < (elements.size() > 5 ? 5 : elements.size()); i++) {
+        for (int i = 0; i < (elements.size() > 10 ? 10 : elements.size()); i++) {
             actors.add(elements.get(i).child(0).text());
         }
+    }
+
+    @JsonProperty("year")
+    public Integer getYear() {
+        return year;
+    }
+
+    @JsonProperty("year")
+    public void setYear(Integer year) {
+        this.year = year;
+    }
+
+    public void setYear(Document document) {
+        Elements elements = document.select("a[href^=/lists/m_act%5Byear%5D/]");
+        if (elements.isEmpty() || elements.size() > 1) {
+            throw new IllegalArgumentException("Incorrect number of items for year!");
+        }
+
+        this.year = Integer.parseInt(elements.get(0).text());
     }
 
     public void fillInFields(Document document) {
@@ -113,8 +156,9 @@ public class Movie {
             if (parameterTypes.length > 0 && parameterTypes[0].equals(Document.class) && !method.getName().equals("fillInFields")) {
                 try {
                     method.invoke(this, document);
-                } catch (ReflectiveOperationException e) {
-                    logger.error("Error in parsing a movie", e);
+                } catch (ReflectiveOperationException | IllegalArgumentException e) {
+                    logger.error("Error parsing a movie", e);
+                    throw new IllegalStateException(e);
                 }
             }
         }

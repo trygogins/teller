@@ -5,18 +5,31 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.SingleColumnRowMapper;
+import org.springframework.stereotype.Service;
 import ru.ovsyannikov.parsing.exceptions.KinopoiskForbiddenException;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * @author Georgii Ovsiannikov
  * @since 4/12/15
  */
-public class KinopoiskMovieParser {
+@Service
+public class MovieParser {
 
-    private static final Logger logger = LoggerFactory.getLogger(KinopoiskMovieParser.class);
+    private static final Logger logger = LoggerFactory.getLogger(MovieParser.class);
+
+    @Autowired
+    public JdbcTemplate template;
+
+    @Autowired
+    public StorageHelper storageHelper;
 
     /**
      * @see #parseMovie(String, boolean)
@@ -33,6 +46,9 @@ public class KinopoiskMovieParser {
      */
     public Movie parseMovie(String url, boolean local) {
         Document document = local ? getDocument(url) : downloadDocument(url);
+        if (document == null) {
+            return null;
+        }
 
         Movie movie = new Movie();
         movie.fillInFields(document);
@@ -74,9 +90,25 @@ public class KinopoiskMovieParser {
         }
     }
 
+    public void process() {
+        // fetch movies that are not yet processed
+        List<Long> kinopoiskIds = template.query("select kinopoisk_id from (select v.kinopoisk_id, count(*) from votes v left join movies m  on v.kinopoisk_id = m.kinopoisk_id where m.kinopoisk_id is null group by 1 order by 2 desc) t", new SingleColumnRowMapper<>(Long.class));
+
+        MovieParser movieParser = new MovieParser();
+        for (Long kinopoiskId : kinopoiskIds) {
+            try {
+                Movie movie = movieParser.parseMovie("http://kinopoisk.ru/film/" + kinopoiskId);
+                movie.setKinopoiskId(kinopoiskId);
+                storageHelper.saveMovie(movie);
+                logger.info("movie #{} processed successfully", kinopoiskId);
+            } catch (IllegalStateException ignore) {
+            }
+        }
+    }
+
     public static void main(String[] args) {
-        KinopoiskMovieParser movieParser = new KinopoiskMovieParser();
-        Movie movie = movieParser.parseMovie("/Users/georgii/Dropbox/coursework/filtering/src/main/resources/testpages/into_the_wild.html", true);
-        System.out.println(movie);
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        MovieParser parser = context.getBean(MovieParser.class);
+        parser.process();
     }
 }
