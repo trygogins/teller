@@ -1,9 +1,11 @@
 package ru.ovsyannikov.parsing;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author Georgii Ovsiannikov
@@ -19,7 +24,23 @@ import java.sql.Statement;
 @Service
 public class StorageHelper {
 
-    private static final Logger logger = LoggerFactory.getLogger(StorageHelper.class);
+    public static final ResultSetExtractor<List<Movie>> MOVIE_EXTRACTOR = resultSet -> {
+        List<Movie> result = new ArrayList<>();
+        while (resultSet.next()) {
+            Movie movie = new Movie();
+            movie.setId(resultSet.getLong("movie_id"));
+            movie.setKinopoiskId(resultSet.getLong("kinopoisk_id"));
+            movie.setTitle(resultSet.getString("title"));
+            movie.setYear(resultSet.getInt("year"));
+            movie.setDirector(resultSet.getString("director"));
+            movie.setActors(Arrays.asList(StringUtils.split(resultSet.getString("actors"), ",")));
+            movie.setGenres(Arrays.asList(StringUtils.split(resultSet.getString("genres"), ",")));
+
+            result.add(movie);
+        }
+
+        return result;
+    };
 
     @Autowired
     public JdbcTemplate template;
@@ -80,6 +101,28 @@ public class StorageHelper {
 
                 return true;
         });
+    }
+
+    public List<Long> getUnprocessedMovies() {
+        return template.query("select kinopoisk_id from " +
+                "(select v.kinopoisk_id, count(*) " +
+                "from votes v left " +
+                "join movies m  on v.kinopoisk_id = m.kinopoisk_id " +
+                "where m.kinopoisk_id is null " +
+                "group by 1 order by 2 desc) t", new SingleColumnRowMapper<>(Long.class));
+    }
+
+    public List<Movie> getMovie(List<Long> movieIds) {
+        return template.query("select m.*, group_concat(distinct a.name) as actors, group_concat(distinct g.genre) as genres from movies m " +
+                "join movie_actors ma on m.movie_id = ma.movie_id join actors a on ma.actor_id = a.actor_id " +
+                "join movie_genres mg on m.movie_id = mg.movie_id join genres g on mg.genre_id = g.genre_id where m.movie_id in (" + StringUtils.join(movieIds, ",") + ")", MOVIE_EXTRACTOR);
+    }
+
+    public static void main(String[] args) {
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        StorageHelper helper = context.getBean(StorageHelper.class);
+        List<Movie> movie = helper.getMovie(Arrays.asList(2l));
+        System.out.println(movie);
     }
 
 }

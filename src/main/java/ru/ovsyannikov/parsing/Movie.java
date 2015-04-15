@@ -6,10 +6,7 @@ import org.codehaus.jackson.annotate.JsonProperty;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,8 +17,6 @@ import java.util.stream.Collectors;
  */
 @Entity(noClassnameStored = true, value = "movie_info")
 public class Movie {
-
-    private static final Logger logger = LoggerFactory.getLogger(Movie.class);
 
     private Long id;
     private Long kinopoiskId;
@@ -86,7 +81,7 @@ public class Movie {
             throw new IllegalArgumentException("Incorrect number of items for director!");
         }
 
-        this.director = elements.get(0).child(0).text();
+        this.director = elements.get(0).children().isEmpty() ? "-" : elements.get(0).child(0).text();
     }
 
     @JsonProperty("genres")
@@ -102,8 +97,12 @@ public class Movie {
     public void setGenres(Document document) {
         genres = new ArrayList<>();
         Elements elements = document.select("span[itemprop=genre]");
-        if (elements.isEmpty() || elements.size() > 1) {
+        if (elements.size() > 1) {
             throw new IllegalArgumentException("Incorrect number of items for genres list!");
+        }
+        // there may be no genres (kinopoisk, chyo...)
+        if (elements.isEmpty()) {
+            return;
         }
 
         genres.addAll(elements.get(0).children().stream()
@@ -150,17 +149,10 @@ public class Movie {
     }
 
     public void fillInFields(Document document) {
-        Method[] methods = Movie.class.getDeclaredMethods();
-        for (Method method : methods) {
-            Class<?>[] parameterTypes = method.getParameterTypes();
-            if (parameterTypes.length > 0 && parameterTypes[0].equals(Document.class) && !method.getName().equals("fillInFields")) {
-                try {
-                    method.invoke(this, document);
-                } catch (ReflectiveOperationException | IllegalArgumentException e) {
-                    logger.error("Error parsing a movie", e);
-                    throw new IllegalStateException(e);
-                }
-            }
-        }
+        setTitle(document);
+        setYear(document);
+        setDirector(document);
+        setGenres(document);
+        setActors(document);
     }
 }

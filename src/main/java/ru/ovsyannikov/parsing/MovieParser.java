@@ -7,14 +7,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.parsing.exceptions.KinopoiskForbiddenException;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.*;
 
 /**
  * @author Georgii Ovsiannikov
@@ -24,9 +23,6 @@ import java.util.List;
 public class MovieParser {
 
     private static final Logger logger = LoggerFactory.getLogger(MovieParser.class);
-
-    @Autowired
-    public JdbcTemplate template;
 
     @Autowired
     public StorageHelper storageHelper;
@@ -50,9 +46,14 @@ public class MovieParser {
             return null;
         }
 
-        Movie movie = new Movie();
-        movie.fillInFields(document);
-        return movie;
+        try {
+            Movie movie = new Movie();
+            movie.fillInFields(document);
+            return movie;
+        } catch (IllegalArgumentException e) {
+            logger.error("error parsing movie at {}", url, e);
+            return null;
+        }
     }
 
     /**
@@ -74,6 +75,7 @@ public class MovieParser {
     public Document downloadDocument(String url) {
         try {
             Connection.Response response = Jsoup.connect(url)
+                    .timeout(10000)
                     .followRedirects(true)
                     .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.118 Safari/537.36")
                     .header("Cookie", "tc=5381; awfs=1; user_country=ru; noflash=false; mobile=no; mobile=no; _ym_visorc_22663942=b; yandexuid=687401641428855418; refresh_yandexuid=687401641428855418")
@@ -92,17 +94,42 @@ public class MovieParser {
 
     public void process() {
         // fetch movies that are not yet processed
-        List<Long> kinopoiskIds = template.query("select kinopoisk_id from (select v.kinopoisk_id, count(*) from votes v left join movies m  on v.kinopoisk_id = m.kinopoisk_id where m.kinopoisk_id is null group by 1 order by 2 desc) t", new SingleColumnRowMapper<>(Long.class));
+        List<Long> kinopoiskIds = storageHelper.getUnprocessedMovies();
+        ArrayBlockingQueue<Long> movieIds = new ArrayBlockingQueue<>(kinopoiskIds.size(), true, kinopoiskIds);
 
-        MovieParser movieParser = new MovieParser();
-        for (Long kinopoiskId : kinopoiskIds) {
+        int poolSize = 8;
+        ExecutorService executorService = Executors.newFixedThreadPool(poolSize);
+
+        for (int i = 0; i < poolSize; i++) {
             try {
-                Movie movie = movieParser.parseMovie("http://kinopoisk.ru/film/" + kinopoiskId);
-                movie.setKinopoiskId(kinopoiskId);
-                storageHelper.saveMovie(movie);
-                logger.info("movie #{} processed successfully", kinopoiskId);
-            } catch (IllegalStateException ignore) {
+                Thread.sleep(1000 / poolSize);
+                executorService.submit(() -> processMovie(movieIds));
+            } catch (InterruptedException e) {
+                throw new CancellationException();
             }
+        }
+
+        executorService.shutdown();
+    }
+
+    public void processMovie(BlockingQueue<Long> queue) {
+        try {
+            Long kinopoiskId;
+            while ((kinopoiskId = queue.poll(5, TimeUnit.MINUTES)) != null) {
+                MovieParser movieParser = new MovieParser();
+                logger.info("movie #{} – started", kinopoiskId);
+                Movie movie = movieParser.parseMovie("http://kinopoisk.ru/film/" + kinopoiskId);
+                if (movie != null) {
+                    movie.setKinopoiskId(kinopoiskId);
+                    storageHelper.saveMovie(movie);
+                    logger.info("movie #{} – processed", kinopoiskId);
+                }
+            }
+        }catch(InterruptedException e){
+            logger.error("ERROR with queue", e);
+        }catch(KinopoiskForbiddenException e){
+            logger.error("403 by kinopoisk", e);
+        }catch(IllegalStateException ignore){
         }
     }
 
