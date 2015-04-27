@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
-import ru.ovsyannikov.parsing.exceptions.KinopoiskForbiddenException;
+import ru.ovsyannikov.exceptions.KinopoiskForbiddenException;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +25,7 @@ public class MovieParser {
     private static final Logger logger = LoggerFactory.getLogger(MovieParser.class);
 
     @Autowired
-    public StorageHelper storageHelper;
+    public MovieStorageHelper movieStorageHelper;
 
     /**
      * @see #parseMovie(String, boolean)
@@ -94,7 +94,7 @@ public class MovieParser {
 
     public void process() {
         // fetch movies that are not yet processed
-        List<Long> kinopoiskIds = storageHelper.getUnprocessedMovies();
+        List<Long> kinopoiskIds = movieStorageHelper.getUnprocessedMovies();
         ArrayBlockingQueue<Long> movieIds = new ArrayBlockingQueue<>(kinopoiskIds.size(), true, kinopoiskIds);
 
         int poolSize = 8;
@@ -121,7 +121,7 @@ public class MovieParser {
                 Movie movie = movieParser.parseMovie("http://kinopoisk.ru/film/" + kinopoiskId);
                 if (movie != null) {
                     movie.setKinopoiskId(kinopoiskId);
-                    storageHelper.saveMovie(movie);
+                    movieStorageHelper.saveMovie(movie);
                     logger.info("movie #{} – processed", kinopoiskId);
                 }
             }
@@ -134,7 +134,7 @@ public class MovieParser {
     }
 
     public static void main(String[] args) {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("applicationContext.xml");
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieParser parser = context.getBean(MovieParser.class);
         parser.process();
     }

@@ -1,4 +1,4 @@
-package ru.ovsyannikov.parsing.exceptions;
+package ru.ovsyannikov.exceptions;
 
 /**
  * @author Georgii Ovsiannikov
