@@ -149,6 +149,10 @@ public class MovieStorageHelper {
                 "where watched.kinopoisk_id is null limit 20", new SingleColumnRowMapper<>(Long.class), userId));
     }
 
+    public int setMovieVote(Long userId, Long movieId, Integer vote) {
+        return template.update("insert into votes values (?,?,now(),?)", userId, movieId, vote);
+    }
+
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper helper = context.getBean(MovieStorageHelper.class);
