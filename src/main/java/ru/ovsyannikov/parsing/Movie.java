@@ -166,4 +166,36 @@ public class Movie {
         setGenres(document);
         setActors(document);
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Movie movie = (Movie) o;
+
+        if (actors != null ? !actors.equals(movie.actors) : movie.actors != null) return false;
+        if (director != null ? !director.equals(movie.director) : movie.director != null) return false;
+        if (genres != null ? !genres.equals(movie.genres) : movie.genres != null) return false;
+        if (!id.equals(movie.id)) return false;
+        if (keywords != null ? !keywords.equals(movie.keywords) : movie.keywords != null) return false;
+        if (kinopoiskId != null ? !kinopoiskId.equals(movie.kinopoiskId) : movie.kinopoiskId != null) return false;
+        if (title != null ? !title.equals(movie.title) : movie.title != null) return false;
+        if (year != null ? !year.equals(movie.year) : movie.year != null) return false;
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + (kinopoiskId != null ? kinopoiskId.hashCode() : 0);
+        result = 31 * result + (title != null ? title.hashCode() : 0);
+        result = 31 * result + (director != null ? director.hashCode() : 0);
+        result = 31 * result + (genres != null ? genres.hashCode() : 0);
+        result = 31 * result + (actors != null ? actors.hashCode() : 0);
+        result = 31 * result + (keywords != null ? keywords.hashCode() : 0);
+        result = 31 * result + (year != null ? year.hashCode() : 0);
+        return result;
+    }
 }

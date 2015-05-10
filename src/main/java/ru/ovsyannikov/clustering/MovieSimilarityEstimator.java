@@ -1,6 +1,8 @@
 package ru.ovsyannikov.clustering;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -9,9 +11,10 @@ import org.springframework.stereotype.Service;
 import ru.ovsyannikov.parsing.Movie;
 import ru.ovsyannikov.parsing.MovieStorageHelper;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -32,10 +35,10 @@ public class MovieSimilarityEstimator {
         return movies;
     }
 
-    private List<FuzzyCMeansProcessor.Distance> calculateSimilarity(List<Movie> movies) {
-        List<FuzzyCMeansProcessor.Distance> result = new ArrayList<>();
+    private Map<Pair<Movie, Movie>, Double> calculateSimilarity(List<Movie> movies) {
+        Map<Pair<Movie, Movie>, Double> result = new HashMap<>();
         for (Movie m1 : movies) {
-            movies.stream().filter(m2 -> m1 != m2).forEach(m2 -> result.add(new FuzzyCMeansProcessor.Distance(m1, m2, similarity(m1, m2))));
+            movies.stream().filter(m2 -> m1 != m2).forEach(m2 -> result.put(new ImmutablePair<>(m1, m2), similarity(m1, m2)));
         }
 
         return result;
