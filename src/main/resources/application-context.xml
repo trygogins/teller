@@ -35,6 +35,11 @@
         <constructor-arg type="java.lang.String" value="teller" />
     </bean>
 
+    <bean class="com.omertron.themoviedbapi.TheMovieDbApi">
+        <constructor-arg name="apiKey" value="${themoviedb.api.token}"/>
+    </bean>
+
     <context:annotation-config/>
     <context:component-scan base-package="ru.ovsyannikov"/>
+    <context:property-placeholder location="credentials.properties"/>
 </beans>

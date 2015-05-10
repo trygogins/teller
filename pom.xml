@@ -68,6 +68,14 @@
             <artifactId>mahout-integration</artifactId>
             <version>0.10.0</version>
         </dependency>
+
+        <!-- NEW -->
+        <dependency>
+            <groupId>com.omertron</groupId>
+            <artifactId>themoviedbapi</artifactId>
+            <version>4.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
