@@ -24,6 +24,7 @@ public class Movie {
     private String director;
     private List<String> genres;
     private List<String> actors;
+    private List<String> keywords;
     private Integer year;
 
     @JsonIgnore
@@ -146,6 +147,16 @@ public class Movie {
         }
 
         this.year = Integer.parseInt(elements.get(0).text());
+    }
+
+    @JsonProperty("keywords")
+    public List<String> getKeywords() {
+        return keywords;
+    }
+
+    @JsonProperty("keywords")
+    public void setKeywords(List<String> keywords) {
+        this.keywords = keywords;
     }
 
     public void fillInFields(Document document) {
