@@ -1,14 +1,22 @@
 package ru.ovsyannikov.clustering;
 
 import com.google.common.collect.Multimap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
-import ru.ovsyannikov.clustering.model.*;
+import ru.ovsyannikov.clustering.model.ClusterCenter;
+import ru.ovsyannikov.clustering.model.DataSet;
+import ru.ovsyannikov.clustering.model.DistanceInfo;
+import ru.ovsyannikov.clustering.model.NonDuplicateDataSet;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 
 /**
  * The class contains an implementation of c-means clustering algorithm
@@ -18,6 +26,8 @@ import java.util.*;
  */
 @Service
 public class KMeansProcessor {
+
+    private static final Logger logger = LoggerFactory.getLogger(KMeansProcessor.class);
 
     @Autowired
     private MovieSimilarityEstimator similarityEstimator;
@@ -30,46 +40,55 @@ public class KMeansProcessor {
     @PostConstruct
     public void init() {
         movies = Boolean.valueOf(System.getProperty("ru.ovsyannikov.teller.production")) ?
-                similarityEstimator.getMovies("votes2") : HelperUtils.getTestMovies();
+                similarityEstimator.getMovies("votes2") : DistanceUtils.getTestMovies();
         distances = distanceProcessor.calculateAttributesDistances();
     }
 
     /**
      * Performs clustering
      */
-    public void cluster(int numClusters) {
-        Map<Movie, List<Distance>> centroids = new HashMap<>();
-        // randomly given centroids
+    public HashMap<ClusterCenter, List<Movie>> cluster(int numClusters) {
+        HashMap<ClusterCenter, List<Movie>> clusters = new HashMap<>();
+        HashMap<ClusterCenter, List<Movie>> previousClusters = new HashMap<>();
+        int iterations = 0;
+        // randomly given centers
         for (int i = 0; i < numClusters; i++) {
-            centroids.put(movies.get(i), new ArrayList<>());
+            clusters.put(new ClusterCenter(Arrays.asList(movies.get(i))), new ArrayList<>());
         }
 
-        boolean[][] accessory = new boolean[numClusters][movies.size()];
-
-        for (Movie movie : movies) {
-            for (Movie centroidMovie : centroids.keySet()) {
-                centroids.get(centroidMovie).add(new Distance(movie, similarityEstimator.similarity(centroidMovie, movie)));
-            }
-        }
-
-        for (int i = 0; i < movies.size(); i++) {
-            double maximumSimilarity = 0.0;
-            int maximumSimilarityIndex = 0;
-            int currentIndex = 0;
-            for (Movie centroid : centroids.keySet()) {
-                double similarity = centroids.get(centroid).get(i).getDistance();
-                if (similarity > maximumSimilarity) {
-                    maximumSimilarity = similarity;
-                    maximumSimilarityIndex = currentIndex;
+        while (true) {
+            iterations ++;
+            for (Movie movie : movies) {
+                double minDistance = Double.MAX_VALUE;
+                ClusterCenter minDistanceCenter = null;
+                for (ClusterCenter clusterCenter : clusters.keySet()) {
+                    double distance = distance(movie, clusterCenter);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        minDistanceCenter = clusterCenter;
+                    }
                 }
 
-                currentIndex++;
+                clusters.getOrDefault(minDistanceCenter, new ArrayList<>()).add(movie);
             }
 
-            accessory[maximumSimilarityIndex][i] = true;
+            if (ComparisonUtils.isEqual(clusters, previousClusters)) {
+                break;
+            }
+
+            previousClusters.clear();
+            for (ClusterCenter clusterCenter : clusters.keySet()) {
+                previousClusters.put(clusterCenter, clusters.get(clusterCenter));
+            }
+
+            clusters.clear();
+            for (ClusterCenter clusterCenter : previousClusters.keySet()) {
+                clusters.put(new ClusterCenter(previousClusters.get(clusterCenter)), new ArrayList<>());
+            }
         }
 
-        System.out.println(centroids);
+        logger.info("{} iterations for {} movies and {} clusters", iterations, movies.size(), numClusters);
+        return clusters;
     }
 
     /**
@@ -79,23 +98,23 @@ public class KMeansProcessor {
         NonDuplicateDataSet dataSet = new NonDuplicateDataSet(new DataSet(movies));
         double dist = 0.0;
         for (List<String> actors : dataSet.getActors()) {
-            double actorsDistance = center.getActors().getOrDefault(actors, 0) / center.getNc() *
-                    HelperUtils.getDistance(new ArrayList<>(distances.get("actors")), movie.getActors(), actors);
+            double actorsDistance = (double) center.getActors().getOrDefault(actors, 0) / center.getNc() *
+                    DistanceUtils.getDistance(new ArrayList<>(distances.get("actors")), movie.getActors(), actors);
             dist += actorsDistance * actorsDistance;
         }
         for (List<String> genres : dataSet.getGenres()) {
-            double genresDistance = center.getGenres().getOrDefault(genres, 0) / center.getNc() *
-                    HelperUtils.getDistance(new ArrayList<>(distances.get("genres")), movie.getGenres(), genres);
+            double genresDistance = (double) center.getGenres().getOrDefault(genres, 0) / center.getNc() *
+                    DistanceUtils.getDistance(new ArrayList<>(distances.get("genres")), movie.getGenres(), genres);
             dist += genresDistance * genresDistance;
         }
         for (List<String> directors : dataSet.getDirectors()) {
-            double directorsDistance = center.getDirectors().getOrDefault(directors, 0) / center.getNc() *
-                    HelperUtils.getDistance(new ArrayList<>(distances.get("directors")), Arrays.asList(movie.getDirector()), directors);
+            double directorsDistance = (double) center.getDirectors().getOrDefault(directors, 0) / center.getNc() *
+                    DistanceUtils.getDistance(new ArrayList<>(distances.get("directors")), Arrays.asList(movie.getDirector()), directors);
             dist += directorsDistance * directorsDistance;
         }
         for (List<String> keywords : dataSet.getKeywords()) {
-            double keywordsDistance = center.getKeywords().getOrDefault(keywords, 0) / center.getNc() *
-                    HelperUtils.getDistance(new ArrayList<>(distances.get("keywords")), movie.getKeywords(), keywords);
+            double keywordsDistance = (double) center.getKeywords().getOrDefault(keywords, 0) / center.getNc() *
+                    DistanceUtils.getDistance(new ArrayList<>(distances.get("keywords")), movie.getKeywords(), keywords);
             dist += keywordsDistance * keywordsDistance;
         }
 
@@ -112,5 +131,8 @@ public class KMeansProcessor {
                 System.out.println(movie1.getTitle() + " vs. " + movie2.getTitle() + " = " +
                         processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
         }
+
+        HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.cluster(2);
+        System.out.println(clusteredMovies);
     }
 }

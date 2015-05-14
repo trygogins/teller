@@ -47,9 +47,9 @@ public class MovieSimilarityEstimator {
      * @return the similarity
      */
     public Double similarity(Movie m1, Movie m2) {
-        double castSimilarity = HelperUtils.getListsSimilarity(m1.getActors(), m2.getActors());
-        double keywordsSimilarity = HelperUtils.getListsSimilarity(m1.getKeywords(), m2.getKeywords());
-        double genreSimilarity = HelperUtils.getListsSimilarity(m1.getGenres(), m2.getGenres());
+        double castSimilarity = ComparisonUtils.getListsSimilarity(m1.getActors(), m2.getActors());
+        double keywordsSimilarity = ComparisonUtils.getListsSimilarity(m1.getKeywords(), m2.getKeywords());
+        double genreSimilarity = ComparisonUtils.getListsSimilarity(m1.getGenres(), m2.getGenres());
         double directorSimilarity = StringUtils.equals(m1.getDirector(), m2.getDirector()) ? 1.0 : 0.0;
 
         return (castSimilarity + keywordsSimilarity + genreSimilarity + directorSimilarity) / 4;

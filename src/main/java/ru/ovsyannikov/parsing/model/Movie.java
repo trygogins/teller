@@ -209,4 +209,12 @@ public class Movie {
         result = 31 * result + (year != null ? year.hashCode() : 0);
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "Movie{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                '}';
+    }
 }

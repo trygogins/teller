@@ -32,7 +32,7 @@ public class CategoricalDistanceProcessor {
     @PostConstruct
     public void init() {
         List<Movie> movies = Boolean.valueOf(System.getProperty("ru.ovsyannikov.teller.production")) ?
-                similarityEstimator.getMovies("votes2") : HelperUtils.getTestMovies();
+                similarityEstimator.getMovies("votes2") : DistanceUtils.getTestMovies();
         movies.forEach(dataSet::addItem);
     }
 
@@ -166,10 +166,10 @@ public class CategoricalDistanceProcessor {
         double coOccurrence = 0;
         double value2Occurrence = 0;
         for (int i = 0; i < attributes1.size(); i++) {
-            Double similarity1 = HelperUtils.getListsSimilarity(attributes1.get(i), value1);
+            Double similarity1 = ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
             value2Occurrence += similarity1;
             if (similarity1 > 0) {
-                coOccurrence += HelperUtils.getListsSimilarity(attributes2.get(i), value2);
+                coOccurrence += ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
             }
         }
 
