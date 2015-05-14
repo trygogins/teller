@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.clustering.model.*;
-import ru.ovsyannikov.parsing.Movie;
+import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
 import java.util.*;

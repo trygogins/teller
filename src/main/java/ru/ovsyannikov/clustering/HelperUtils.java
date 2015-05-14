@@ -1,7 +1,7 @@
 package ru.ovsyannikov.clustering;
 
 import ru.ovsyannikov.clustering.model.DistanceInfo;
-import ru.ovsyannikov.parsing.Movie;
+import ru.ovsyannikov.parsing.model.Movie;
 
 import java.util.ArrayList;
 import java.util.Arrays;

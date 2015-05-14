@@ -8,8 +8,8 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.stereotype.Service;
-import ru.ovsyannikov.parsing.Movie;
 import ru.ovsyannikov.parsing.MovieStorageHelper;
+import ru.ovsyannikov.parsing.model.Movie;
 
 import java.util.HashMap;
 import java.util.List;

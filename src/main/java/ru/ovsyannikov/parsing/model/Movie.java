@@ -1,4 +1,4 @@
-package ru.ovsyannikov.parsing;
+package ru.ovsyannikov.parsing.model;
 
 import com.google.code.morphia.annotations.Entity;
 import org.codehaus.jackson.annotate.JsonIgnore;

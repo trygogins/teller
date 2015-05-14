@@ -1,4 +1,4 @@
-package ru.ovsyannikov.parsing;
+package ru.ovsyannikov.parsing.model;
 
 import org.codehaus.jackson.annotate.JsonProperty;
 

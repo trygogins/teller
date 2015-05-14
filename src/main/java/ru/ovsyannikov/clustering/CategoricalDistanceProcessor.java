@@ -7,7 +7,7 @@ import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
-import ru.ovsyannikov.parsing.Movie;
+import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
 import java.util.HashSet;

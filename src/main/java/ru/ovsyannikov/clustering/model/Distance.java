@@ -1,6 +1,6 @@
 package ru.ovsyannikov.clustering.model;
 
-import ru.ovsyannikov.parsing.Movie;
+import ru.ovsyannikov.parsing.model.Movie;
 
 /**
  * @author Georgii Ovsiannikov

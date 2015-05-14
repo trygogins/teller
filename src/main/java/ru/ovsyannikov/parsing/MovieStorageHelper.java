@@ -10,6 +10,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import ru.ovsyannikov.parsing.model.Movie;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;

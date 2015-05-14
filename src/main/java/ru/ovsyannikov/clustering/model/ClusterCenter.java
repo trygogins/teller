@@ -1,8 +1,11 @@
 package ru.ovsyannikov.clustering.model;
 
-import ru.ovsyannikov.parsing.Movie;
+import ru.ovsyannikov.parsing.model.Movie;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Georgii Ovsiannikov

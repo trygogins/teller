@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.exceptions.KinopoiskForbiddenException;
+import ru.ovsyannikov.parsing.model.Movie;
 
 import java.io.File;
 import java.io.IOException;
