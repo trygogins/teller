@@ -13,10 +13,7 @@ import ru.ovsyannikov.clustering.model.NonDuplicateDataSet;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 /**
  * The class contains an implementation of c-means clustering algorithm
@@ -37,6 +34,8 @@ public class KMeansProcessor {
     private List<Movie> movies;
     private Multimap<String, DistanceInfo<String>> distances;
 
+    private Random random = new Random();
+
     @PostConstruct
     public void init() {
         movies = Boolean.valueOf(System.getProperty("ru.ovsyannikov.teller.production")) ?
@@ -53,7 +52,7 @@ public class KMeansProcessor {
         int iterations = 0;
         // randomly given centers
         for (int i = 0; i < numClusters; i++) {
-            clusters.put(new ClusterCenter(Arrays.asList(movies.get(i))), new ArrayList<>());
+            clusters.put(new ClusterCenter(Arrays.asList(movies.get(random.nextInt(movies.size())))), new ArrayList<>());
         }
 
         while (true) {

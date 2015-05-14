@@ -169,7 +169,7 @@ public class CategoricalDistanceProcessor {
             Double similarity1 = ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
             value2Occurrence += similarity1;
             if (similarity1 > 0) {
-                coOccurrence += ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
+                coOccurrence += similarity1 * ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
             }
         }
 
