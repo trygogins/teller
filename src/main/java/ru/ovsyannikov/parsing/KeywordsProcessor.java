@@ -1,4 +1,4 @@
-package ru.ovsyannikov.clustering;
+package ru.ovsyannikov.parsing;
 
 import com.omertron.themoviedbapi.TheMovieDbApi;
 import com.omertron.themoviedbapi.model.keyword.Keyword;
