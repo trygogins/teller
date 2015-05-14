@@ -24,8 +24,19 @@ public class Movie {
     private String director;
     private List<String> genres;
     private List<String> actors;
-    private List<String> keywords;
+    private List<String> keywords = new ArrayList<>();
     private Integer year;
+
+    public Movie() {
+        // nothing to do here
+    }
+
+    public Movie(String title, String director, List<String> genres, List<String> actors) {
+        this.title = title;
+        this.director = director;
+        this.genres = genres;
+        this.actors = actors;
+    }
 
     @JsonIgnore
     public Long getId() {

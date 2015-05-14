@@ -12,10 +12,8 @@ import ru.ovsyannikov.parsing.Movie;
 import ru.ovsyannikov.parsing.MovieStorageHelper;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * @author Georgii Ovsiannikov
@@ -49,31 +47,12 @@ public class MovieSimilarityEstimator {
      * @return the similarity
      */
     public Double similarity(Movie m1, Movie m2) {
-        double castSimilarity = getListsSimilarity(m1.getActors(), m2.getActors());
-        double keywordsSimilarity = getListsSimilarity(m1.getKeywords(), m2.getKeywords());
-        double genreSimilarity = getListsSimilarity(m1.getGenres(), m2.getGenres());
+        double castSimilarity = HelperUtils.getListsSimilarity(m1.getActors(), m2.getActors());
+        double keywordsSimilarity = HelperUtils.getListsSimilarity(m1.getKeywords(), m2.getKeywords());
+        double genreSimilarity = HelperUtils.getListsSimilarity(m1.getGenres(), m2.getGenres());
         double directorSimilarity = StringUtils.equals(m1.getDirector(), m2.getDirector()) ? 1.0 : 0.0;
 
         return (castSimilarity + keywordsSimilarity + genreSimilarity + directorSimilarity) / 4;
-    }
-
-    /**
-     * Method calculates cosine similarity between two lists
-     *
-     * @param array1 – first array
-     * @param array2 – second array
-     * @return similarity between given lists
-     */
-    private <T> Double getListsSimilarity(List<T> array1, List<T> array2) {
-        if (array1 == null || array2 == null) {
-            return array1 == array2 ? 1.0 : 0.0;
-        }
-
-        HashSet<T> words = new HashSet<>();
-        words.addAll(array1.stream().collect(Collectors.toList()));
-        words.addAll(array2.stream().collect(Collectors.toList()));
-
-        return (array1.size() + array2.size() - words.size()) / Math.sqrt(array1.size() * array2.size());
     }
 
     public static void main(String[] args) {
