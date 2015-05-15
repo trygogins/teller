@@ -10,6 +10,7 @@ import ru.ovsyannikov.clustering.model.ClusterCenter;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
 import ru.ovsyannikov.clustering.model.NonDuplicateDataSet;
+import ru.ovsyannikov.parsing.MovieStorageHelper;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
@@ -27,7 +28,7 @@ public class KMeansProcessor {
     private static final Logger logger = LoggerFactory.getLogger(KMeansProcessor.class);
 
     @Autowired
-    private MovieSimilarityEstimator similarityEstimator;
+    private MovieStorageHelper storageHelper;
     @Autowired
     private CategoricalDistanceProcessor distanceProcessor;
 
@@ -39,8 +40,8 @@ public class KMeansProcessor {
     @PostConstruct
     public void init() {
         movies = Boolean.valueOf(System.getProperty("ru.ovsyannikov.teller.production")) ?
-                similarityEstimator.getMovies("votes2") : DistanceUtils.getTestMovies();
-        distances = distanceProcessor.calculateAttributesDistances();
+                storageHelper.getMovies("votes2") : DistanceUtils.getTestMovies();
+        distances = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
     }
 
     /**
@@ -124,12 +125,12 @@ public class KMeansProcessor {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         KMeansProcessor processor = context.getBean(KMeansProcessor.class);
 
-        List<Movie> movies = processor.movies;
-        for (Movie movie1 : movies) {
-            movies.stream().filter(movie2 -> !movie1.equals(movie2)).forEach(movie2 ->
-                System.out.println(movie1.getTitle() + " vs. " + movie2.getTitle() + " = " +
-                        processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
-        }
+//        List<Movie> movies = processor.movies;
+//        for (Movie movie1 : movies) {
+//            movies.stream().filter(movie2 -> !movie1.equals(movie2)).forEach(movie2 ->
+//                System.out.println(movie1.getTitle() + " vs. " + movie2.getTitle() + " = " +
+//                        processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
+//        }
 
         HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.cluster(2);
         System.out.println(clusteredMovies);

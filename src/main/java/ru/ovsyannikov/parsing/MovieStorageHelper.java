@@ -154,6 +154,10 @@ public class MovieStorageHelper {
         return template.update("insert into votes values (?,?,now(),?)", userId, movieId, vote);
     }
 
+    public List<Movie> getMovies(String tableName) {
+        return getMoviesByKinopoiskId(template.query("select distinct kinopoisk_id from " + tableName, new SingleColumnRowMapper<>(Long.class)));
+    }
+
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper helper = context.getBean(MovieStorageHelper.class);

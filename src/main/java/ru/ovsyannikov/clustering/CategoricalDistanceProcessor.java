@@ -2,17 +2,23 @@ package ru.ovsyannikov.clustering;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.google.common.collect.Multimaps;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
-import ru.ovsyannikov.parsing.model.Movie;
+import ru.ovsyannikov.parsing.MovieStorageHelper;
 
-import javax.annotation.PostConstruct;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Class for calculating distances between categorical attributes of movies
@@ -24,100 +30,101 @@ import java.util.Set;
 @Service
 public class CategoricalDistanceProcessor {
 
-    @Autowired
-    private MovieSimilarityEstimator similarityEstimator;
-
-    private DataSet dataSet = new DataSet();
-
-    @PostConstruct
-    public void init() {
-        List<Movie> movies = Boolean.valueOf(System.getProperty("ru.ovsyannikov.teller.production")) ?
-                similarityEstimator.getMovies("votes2") : DistanceUtils.getTestMovies();
-        movies.forEach(dataSet::addItem);
-    }
+    private static final Logger logger = LoggerFactory.getLogger(CategoricalDistanceProcessor.class);
 
     /**
      * Считает расстояние между всеми парами значений всех атрибутов
      */
     // TODO: refactor – provide movies attributes as a map
-    public Multimap<String, DistanceInfo<String>> calculateAttributesDistances() {
-        Multimap<String, DistanceInfo<String>> result = HashMultimap.create();
+    public Multimap<String, DistanceInfo<String>> calculateAttributesDistances(DataSet dataSet) {
+        Multimap<String, DistanceInfo<String>> result = Multimaps.synchronizedSetMultimap(HashMultimap.create());
+        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        List<Future> futures = new ArrayList<>();
         // actors
-        for (List<String> actors0 : dataSet.getActors()) {
-            for (List<String> actors1 : dataSet.getActors()) {
-                if (!actors0.equals(actors1)) {
-                    double sum = 0;
-                    // actors-genres
-                    sum += findMax(dataSet.getActors(), dataSet.getGenres(), actors0, actors1);
-                    // actors-directors
-                    sum += findMax(dataSet.getActors(), dataSet.getDirectors(), actors0, actors1);
-                    // actors-keywords
-                    sum += findMax(dataSet.getActors(), dataSet.getKeywords(), actors0, actors1);
-                    DistanceInfo<String> info = new DistanceInfo<>(actors0, actors1, "actors", sum / 3);
-                    if (!result.containsValue(info)) {
+        futures.add(executorService.submit(() -> {
+            for (List<String> actors0 : dataSet.getActors()) {
+                for (List<String> actors1 : dataSet.getActors()) {
+                    if (!actors0.equals(actors1)) {
+                        double sum = 0;
+                        // actors-genres
+                        sum += findMax(dataSet.getActors(), dataSet.getGenres(), actors0, actors1);
+                        // actors-directors
+                        sum += findMax(dataSet.getActors(), dataSet.getDirectors(), actors0, actors1);
+                        // actors-keywords
+                        sum += findMax(dataSet.getActors(), dataSet.getKeywords(), actors0, actors1);
+                        DistanceInfo<String> info = new DistanceInfo<>(actors0, actors1, "actors", sum / 3);
                         result.put("actors", info);
                     }
                 }
             }
-        }
-
+            logger.info("actors submission finished");
+        }));
         // genres
-        for (List<String> genres0 : dataSet.getGenres()) {
-            for (List<String> genres1 : dataSet.getGenres()) {
-                if (!genres0.equals(genres1)) {
-                    double sum = 0;
-                    // genres-directors
-                    sum += findMax(dataSet.getGenres(), dataSet.getDirectors(), genres0, genres1);
-                    // genres-keywords
-                    sum += findMax(dataSet.getGenres(), dataSet.getKeywords(), genres0, genres1);
-                    // genres-actors
-                    sum += findMax(dataSet.getGenres(), dataSet.getActors(), genres0, genres1);
-                    DistanceInfo<String> info = new DistanceInfo<>(genres0, genres1, "genres", sum / 3);
-                    if (!result.containsValue(info)) {
+        futures.add(executorService.submit(() -> {
+            for (List<String> genres0 : dataSet.getGenres()) {
+                for (List<String> genres1 : dataSet.getGenres()) {
+                    if (!genres0.equals(genres1)) {
+                        double sum = 0;
+                        // genres-directors
+                        sum += findMax(dataSet.getGenres(), dataSet.getDirectors(), genres0, genres1);
+                        // genres-keywords
+                        sum += findMax(dataSet.getGenres(), dataSet.getKeywords(), genres0, genres1);
+                        // genres-actors
+                        sum += findMax(dataSet.getGenres(), dataSet.getActors(), genres0, genres1);
+                        DistanceInfo<String> info = new DistanceInfo<>(genres0, genres1, "genres", sum / 3);
                         result.put("genres", info);
                     }
                 }
             }
-        }
-
+            logger.info("genres submission finished");
+        }));
         // directors
-        for (List<String> directors0 : dataSet.getDirectors()) {
-            for (List<String> directors1 : dataSet.getDirectors()) {
-                if (!directors0.equals(directors1)) {
-                    double sum = 0;
-                    // directors-keywords
-                    sum += findMax(dataSet.getDirectors(), dataSet.getKeywords(), directors0, directors1);
-                    // directors-actors
-                    sum += findMax(dataSet.getDirectors(), dataSet.getActors(), directors0, directors1);
-                    // directors-genres
-                    sum += findMax(dataSet.getDirectors(), dataSet.getGenres(), directors0, directors1);
-                    DistanceInfo<String> info = new DistanceInfo<>(directors0, directors1, "directors", sum / 3);
-                    if (!result.containsValue(info)) {
+        futures.add(executorService.submit(() -> {
+            for (List<String> directors0 : dataSet.getDirectors()) {
+                for (List<String> directors1 : dataSet.getDirectors()) {
+                    if (!directors0.equals(directors1)) {
+                        double sum = 0;
+                        // directors-keywords
+                        sum += findMax(dataSet.getDirectors(), dataSet.getKeywords(), directors0, directors1);
+                        // directors-actors
+                        sum += findMax(dataSet.getDirectors(), dataSet.getActors(), directors0, directors1);
+                        // directors-genres
+                        sum += findMax(dataSet.getDirectors(), dataSet.getGenres(), directors0, directors1);
+                        DistanceInfo<String> info = new DistanceInfo<>(directors0, directors1, "directors", sum / 3);
                         result.put("directors", info);
                     }
                 }
             }
-        }
-
+            logger.info("directors submission finished");
+        }));
         // keywords
-        for (List<String> keywords0 : dataSet.getKeywords()) {
-            for (List<String> keywords1 : dataSet.getKeywords()) {
-                if (!keywords0.equals(keywords1)) {
-                    double sum = 0;
-                    // keywords-actors
-                    sum += findMax(dataSet.getKeywords(), dataSet.getActors(), keywords0, keywords1);
-                    // keywords-genres
-                    sum += findMax(dataSet.getKeywords(), dataSet.getGenres(), keywords0, keywords1);
-                    // keywords-directors
-                    sum += findMax(dataSet.getKeywords(), dataSet.getDirectors(), keywords0, keywords1);
-                    DistanceInfo<String> info = new DistanceInfo<>(keywords0, keywords1, "keywords", sum / 3);
-                    if (!result.containsValue(info)) {
+        futures.add(executorService.submit(() -> {
+            for (List<String> keywords0 : dataSet.getKeywords()) {
+                for (List<String> keywords1 : dataSet.getKeywords()) {
+                    if (!keywords0.equals(keywords1)) {
+                        double sum = 0;
+                        // keywords-actors
+                        sum += findMax(dataSet.getKeywords(), dataSet.getActors(), keywords0, keywords1);
+                        // keywords-genres
+                        sum += findMax(dataSet.getKeywords(), dataSet.getGenres(), keywords0, keywords1);
+                        // keywords-directors
+                        sum += findMax(dataSet.getKeywords(), dataSet.getDirectors(), keywords0, keywords1);
+                        DistanceInfo<String> info = new DistanceInfo<>(keywords0, keywords1, "keywords", sum / 3);
                         result.put("keywords", info);
                     }
                 }
             }
+            logger.info("keywords submission finished");
+        }));
+        for (Future future : futures) {
+            try {
+                future.get();
+            } catch (InterruptedException | ExecutionException e) {
+                logger.info("ERROR", e);
+            }
         }
 
+        executorService.shutdownNow();
         return result;
     }
 
@@ -183,7 +190,8 @@ public class CategoricalDistanceProcessor {
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         CategoricalDistanceProcessor processor = context.getBean(CategoricalDistanceProcessor.class);
-        Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances();
+        MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
+        Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances(new DataSet(storageHelper.getMovies("votes2")));
         System.out.println(distances);
     }
 }

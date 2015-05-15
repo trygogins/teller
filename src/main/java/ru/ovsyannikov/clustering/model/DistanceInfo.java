@@ -63,7 +63,6 @@ public class DistanceInfo<T> {
 
         DistanceInfo that = (DistanceInfo) o;
 
-        if (Double.compare(that.distance, distance) != 0) return false;
         if (collection1 != null ? !collection1.equals(that.collection1) : that.collection1 != null) return false;
         if (collection2 != null ? !collection2.equals(that.collection2) : that.collection2 != null) return false;
         if (name != null ? !name.equals(that.name) : that.name != null) return false;
@@ -74,12 +73,9 @@ public class DistanceInfo<T> {
     @Override
     public int hashCode() {
         int result;
-        long temp;
         result = collection1 != null ? collection1.hashCode() : 0;
         result = 31 * result + (collection2 != null ? collection2.hashCode() : 0);
         result = 31 * result + (name != null ? name.hashCode() : 0);
-        temp = Double.doubleToLongBits(distance);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
         return result;
     }
 }
