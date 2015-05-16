@@ -3,9 +3,7 @@ package ru.ovsyannikov.clustering;
 import com.google.common.collect.Multimap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.stereotype.Service;
 import ru.ovsyannikov.clustering.model.ClusterCenter;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
@@ -13,7 +11,6 @@ import ru.ovsyannikov.clustering.model.NonDuplicateDataSet;
 import ru.ovsyannikov.parsing.MovieStorageHelper;
 import ru.ovsyannikov.parsing.model.Movie;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
 
 /**
@@ -22,26 +19,19 @@ import java.util.*;
  * @author Georgii Ovsiannikov
  * @since 5/6/15
  */
-@Service
 public class KMeansProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(KMeansProcessor.class);
 
-    @Autowired
-    private MovieStorageHelper storageHelper;
-    @Autowired
-    private CategoricalDistanceProcessor distanceProcessor;
+    private Random random = new Random();
 
     private List<Movie> movies;
     private Multimap<String, DistanceInfo<String>> distances;
 
-    private Random random = new Random();
-
-    @PostConstruct
-    public void init() {
-        movies = Boolean.valueOf(System.getProperty("ru.ovsyannikov.teller.production")) ?
-                storageHelper.getMovies("votes2") : DistanceUtils.getTestMovies();
-        distances = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
+    public KMeansProcessor(List<Movie> movies) {
+        CategoricalDistanceProcessor distanceProcessor = new CategoricalDistanceProcessor();
+        this.distances = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
+        this.movies = movies;
     }
 
     /**
@@ -123,14 +113,14 @@ public class KMeansProcessor {
 
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
-        KMeansProcessor processor = context.getBean(KMeansProcessor.class);
+        MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
+        KMeansProcessor processor = new KMeansProcessor(storageHelper.getMovies("votes2"));
 
-//        List<Movie> movies = processor.movies;
-//        for (Movie movie1 : movies) {
-//            movies.stream().filter(movie2 -> !movie1.equals(movie2)).forEach(movie2 ->
-//                System.out.println(movie1.getTitle() + " vs. " + movie2.getTitle() + " = " +
-//                        processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
-//        }
+        for (Movie movie1 : processor.movies) {
+            processor.movies.stream().filter(movie2 -> !movie1.equals(movie2)).forEach(movie2 ->
+                System.out.println(movie1.getTitle() + " vs. " + movie2.getTitle() + " = " +
+                        processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
+        }
 
         HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.cluster(2);
         System.out.println(clusteredMovies);

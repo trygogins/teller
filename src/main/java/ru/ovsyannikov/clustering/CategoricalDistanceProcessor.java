@@ -6,7 +6,6 @@ import com.google.common.collect.Multimaps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.stereotype.Service;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
 import ru.ovsyannikov.parsing.MovieStorageHelper;
@@ -27,7 +26,6 @@ import java.util.concurrent.Future;
  * @author Georgii Ovsiannikov
  * @since 5/11/15
  */
-@Service
 public class CategoricalDistanceProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(CategoricalDistanceProcessor.class);
@@ -189,8 +187,9 @@ public class CategoricalDistanceProcessor {
 
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
-        CategoricalDistanceProcessor processor = context.getBean(CategoricalDistanceProcessor.class);
         MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
+
+        CategoricalDistanceProcessor processor = new CategoricalDistanceProcessor();
         Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances(new DataSet(storageHelper.getMovies("votes2")));
         System.out.println(distances);
     }
