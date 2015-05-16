@@ -4,11 +4,11 @@ import com.google.common.collect.Multimap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.clustering.model.ClusterCenter;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
 import ru.ovsyannikov.clustering.model.NonDuplicateDataSet;
-import ru.ovsyannikov.parsing.MovieStorageHelper;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import java.util.*;

@@ -1,4 +1,4 @@
-package ru.ovsyannikov.parsing;
+package ru.ovsyannikov;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;

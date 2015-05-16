@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
+import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.exceptions.KinopoiskForbiddenException;
 import ru.ovsyannikov.parsing.model.Movie;
 

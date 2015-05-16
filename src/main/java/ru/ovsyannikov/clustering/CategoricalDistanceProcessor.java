@@ -6,9 +6,9 @@ import com.google.common.collect.Multimaps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
-import ru.ovsyannikov.parsing.MovieStorageHelper;
 
 import java.util.ArrayList;
 import java.util.HashSet;

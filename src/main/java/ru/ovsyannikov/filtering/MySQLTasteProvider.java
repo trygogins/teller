@@ -13,8 +13,8 @@ import org.apache.mahout.cf.taste.similarity.UserSimilarity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.stereotype.Service;
+import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.exceptions.NotEnoughVotesException;
-import ru.ovsyannikov.parsing.MovieStorageHelper;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
