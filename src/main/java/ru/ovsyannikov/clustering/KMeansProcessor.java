@@ -14,7 +14,7 @@ import ru.ovsyannikov.parsing.model.Movie;
 import java.util.*;
 
 /**
- * The class contains an implementation of c-means clustering algorithm
+ * The class contains an implementation of k-means clustering algorithm
  *
  * @author Georgii Ovsiannikov
  * @since 5/6/15
@@ -24,23 +24,22 @@ public class KMeansProcessor {
     private static final Logger logger = LoggerFactory.getLogger(KMeansProcessor.class);
 
     private Random random = new Random();
-
+    private NonDuplicateDataSet moviesSet;
     private List<Movie> movies;
     private Multimap<String, DistanceInfo<String>> distances;
 
     public KMeansProcessor(List<Movie> movies) {
         CategoricalDistanceProcessor distanceProcessor = new CategoricalDistanceProcessor();
         this.distances = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
+        this.moviesSet = new NonDuplicateDataSet(new DataSet(movies));
         this.movies = movies;
     }
 
-    /**
-     * Performs clustering
-     */
-    public HashMap<ClusterCenter, List<Movie>> cluster(int numClusters) {
+    public HashMap<ClusterCenter, List<Movie>> performClustering(int numClusters) {
         HashMap<ClusterCenter, List<Movie>> clusters = new HashMap<>();
         HashMap<ClusterCenter, List<Movie>> previousClusters = new HashMap<>();
         int iterations = 0;
+
         // randomly given centers
         for (int i = 0; i < numClusters; i++) {
             clusters.put(new ClusterCenter(Arrays.asList(movies.get(random.nextInt(movies.size())))), new ArrayList<>());
@@ -85,24 +84,23 @@ public class KMeansProcessor {
      * Calculates distance between a movie and a cluster center using `Cluster centers for mixed data sets`
      */
     public double distance(Movie movie, ClusterCenter center) {
-        NonDuplicateDataSet dataSet = new NonDuplicateDataSet(new DataSet(movies));
         double dist = 0.0;
-        for (List<String> actors : dataSet.getActors()) {
+        for (List<String> actors : moviesSet.getActors()) {
             double actorsDistance = (double) center.getActors().getOrDefault(actors, 0) / center.getNc() *
                     DistanceUtils.getDistance(new ArrayList<>(distances.get("actors")), movie.getActors(), actors);
             dist += actorsDistance * actorsDistance;
         }
-        for (List<String> genres : dataSet.getGenres()) {
+        for (List<String> genres : moviesSet.getGenres()) {
             double genresDistance = (double) center.getGenres().getOrDefault(genres, 0) / center.getNc() *
                     DistanceUtils.getDistance(new ArrayList<>(distances.get("genres")), movie.getGenres(), genres);
             dist += genresDistance * genresDistance;
         }
-        for (List<String> directors : dataSet.getDirectors()) {
+        for (List<String> directors : moviesSet.getDirectors()) {
             double directorsDistance = (double) center.getDirectors().getOrDefault(directors, 0) / center.getNc() *
                     DistanceUtils.getDistance(new ArrayList<>(distances.get("directors")), Arrays.asList(movie.getDirector()), directors);
             dist += directorsDistance * directorsDistance;
         }
-        for (List<String> keywords : dataSet.getKeywords()) {
+        for (List<String> keywords : moviesSet.getKeywords()) {
             double keywordsDistance = (double) center.getKeywords().getOrDefault(keywords, 0) / center.getNc() *
                     DistanceUtils.getDistance(new ArrayList<>(distances.get("keywords")), movie.getKeywords(), keywords);
             dist += keywordsDistance * keywordsDistance;
@@ -122,7 +120,7 @@ public class KMeansProcessor {
                         processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
         }
 
-        HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.cluster(2);
+        HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.performClustering(2);
         System.out.println(clusteredMovies);
     }
 }
