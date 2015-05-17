@@ -27,8 +27,10 @@ public class DistanceUtils {
         }
 
         for (DistanceInfo<T> distanceInfo : distances) {
-            if (ComparisonUtils.compare(distanceInfo.getCollection1(), targetCollection1) &&
-                    ComparisonUtils.compare(distanceInfo.getCollection2(), targetCollection2)) {
+            if ((ComparisonUtils.compare(distanceInfo.getCollection1(), targetCollection1) &&
+                    ComparisonUtils.compare(distanceInfo.getCollection2(), targetCollection2)) ||
+                    ComparisonUtils.compare(distanceInfo.getCollection1(), targetCollection2) &&
+                    ComparisonUtils.compare(distanceInfo.getCollection2(), targetCollection1)) {
                 return distanceInfo.getDistance();
             }
         }

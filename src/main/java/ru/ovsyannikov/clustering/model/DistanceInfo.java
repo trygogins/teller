@@ -1,5 +1,8 @@
 package ru.ovsyannikov.clustering.model;
 
+import org.apache.commons.lang.StringUtils;
+
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -10,17 +13,17 @@ public class DistanceInfo<T> {
 
     private List<T> collection1;
     private List<T> collection2;
-    private String name;
+    private String type;
     private double distance;
 
     public DistanceInfo() {
         // nothing to do here
     }
 
-    public DistanceInfo(List<T> collection1, List<T> collection2, String name, double distance) {
+    public DistanceInfo(List<T> collection1, List<T> collection2, String type, double distance) {
         this.collection1 = collection1;
         this.collection2 = collection2;
-        this.name = name;
+        this.type = type;
         this.distance = distance;
     }
 
@@ -29,7 +32,12 @@ public class DistanceInfo<T> {
     }
 
     public void setCollection1(List<T> collection1) {
-        this.collection1 = collection1;
+        if (!collection1.isEmpty()) {
+            this.collection1 = Arrays.asList((T[]) StringUtils.split(String.valueOf(collection1.get(0)), ","));
+        } else {
+            this.collection1 = collection1;
+        }
+
     }
 
     public List<T> getCollection2() {
@@ -37,15 +45,19 @@ public class DistanceInfo<T> {
     }
 
     public void setCollection2(List<T> collection2) {
-        this.collection2 = collection2;
+        if (!collection2.isEmpty()) {
+            this.collection2 = Arrays.asList((T[]) StringUtils.split(String.valueOf(collection2.get(0)), ","));
+        } else {
+            this.collection2 = collection2;
+        }
     }
 
-    public String getName() {
-        return name;
+    public String getType() {
+        return type;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setType(String type) {
+        this.type = type;
     }
 
     public double getDistance() {
@@ -65,7 +77,7 @@ public class DistanceInfo<T> {
 
         if (collection1 != null ? !collection1.equals(that.collection1) : that.collection1 != null) return false;
         if (collection2 != null ? !collection2.equals(that.collection2) : that.collection2 != null) return false;
-        if (name != null ? !name.equals(that.name) : that.name != null) return false;
+        if (type != null ? !type.equals(that.type) : that.type != null) return false;
 
         return true;
     }
@@ -75,7 +87,7 @@ public class DistanceInfo<T> {
         int result;
         result = collection1 != null ? collection1.hashCode() : 0;
         result = 31 * result + (collection2 != null ? collection2.hashCode() : 0);
-        result = 31 * result + (name != null ? name.hashCode() : 0);
+        result = 31 * result + (type != null ? type.hashCode() : 0);
         return result;
     }
 }

@@ -1,9 +1,7 @@
 package ru.ovsyannikov.clustering;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * @author Georgii Ovsiannikov
@@ -41,7 +39,9 @@ public class ComparisonUtils {
         }
 
         for (int i = 0; i < list1.size(); i++) {
-            if (!list1.get(i).equals(list2.get(i))) {
+            if (list1.get(i) instanceof List ?
+                    compare((List) list1.get(i), (List) list2.get(i)) :
+                    !list1.get(i).equals(list2.get(i))) {
                 return false;
             }
         }
@@ -61,14 +61,27 @@ public class ComparisonUtils {
             return array1 == array2 ? 1.0 : 0.0;
         }
 
+        int similar = 0;
+        for (T a1 : array1) {
+            for (T a2 : array2) {
+                if (a1.equals(a2)) {
+                    similar ++;
+                }
+            }
+        }
 
-        HashSet<T> items = new HashSet<>();
-        items.addAll(array1.stream().collect(Collectors.toList()));
-        items.addAll(array2.stream().collect(Collectors.toList()));
-        if (items.isEmpty()) {
+        if (array1.size() + array2.size() == 0) {
             return 0.0;
         }
 
-        return (array1.size() + array2.size() - items.size()) / Math.sqrt(array1.size() * array2.size());
+        return 1.0 - similar / Math.sqrt(array1.size() * array2.size());
+
+//        HashSet<T> items = new HashSet<>(array1);
+//        items.addAll(array2);
+//        if (items.isEmpty()) {
+//            return 0.0;
+//        }
+//
+//        return (array1.size() + array2.size() - items.size()) / Math.sqrt(array1.size() * array2.size());
     }
 }

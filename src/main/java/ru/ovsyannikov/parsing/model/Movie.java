@@ -1,8 +1,5 @@
 package ru.ovsyannikov.parsing.model;
 
-import com.google.code.morphia.annotations.Entity;
-import org.codehaus.jackson.annotate.JsonIgnore;
-import org.codehaus.jackson.annotate.JsonProperty;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
@@ -15,7 +12,6 @@ import java.util.stream.Collectors;
  * @author Georgii Ovsiannikov
  * @since 4/2/15
  */
-@Entity(noClassnameStored = true, value = "movie_info")
 public class Movie {
 
     private Long id;
@@ -26,6 +22,8 @@ public class Movie {
     private List<String> actors;
     private List<String> keywords = new ArrayList<>();
     private Integer year;
+
+    private List<Integer> votes;
 
     public Movie() {
         // nothing to do here
@@ -38,34 +36,84 @@ public class Movie {
         this.actors = actors;
     }
 
-    @JsonIgnore
     public Long getId() {
         return id;
     }
 
-    @JsonIgnore
     public void setId(Long id) {
         this.id = id;
     }
 
-    @JsonProperty("kinopoisk_id")
     public Long getKinopoiskId() {
         return kinopoiskId;
     }
 
-    @JsonProperty("kinopoisk_id")
     public void setKinopoiskId(Long kinopoiskId) {
         this.kinopoiskId = kinopoiskId;
     }
 
-    @JsonProperty("title")
     public String getTitle() {
         return title;
     }
 
-    @JsonProperty("title")
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public String getDirector() {
+        return director;
+    }
+
+    public void setDirector(String director) {
+        this.director = director;
+    }
+
+    public List<String> getGenres() {
+        return genres;
+    }
+
+    public void setGenres(List<String> genres) {
+        this.genres = genres;
+    }
+
+    public List<String> getActors() {
+        return actors;
+    }
+
+    public void setActors(List<String> actors) {
+        this.actors = actors;
+    }
+
+    public Integer getYear() {
+        return year;
+    }
+
+    public void setYear(Integer year) {
+        this.year = year;
+    }
+
+    public List<String> getKeywords() {
+        return keywords;
+    }
+
+    public void setKeywords(List<String> keywords) {
+        this.keywords = keywords;
+    }
+
+    public List<Integer> getVotes() {
+        return votes;
+    }
+
+    public void setVotes(List<Integer> votes) {
+        this.votes = votes;
+    }
+
+    public void fillInFields(Document document) {
+        setTitle(document);
+        setYear(document);
+        setDirector(document);
+        setGenres(document);
+        setActors(document);
     }
 
     public void setTitle(Document document) {
@@ -77,16 +125,6 @@ public class Movie {
         this.title = elements.get(0).text();
     }
 
-    @JsonProperty("director")
-    public String getDirector() {
-        return director;
-    }
-
-    @JsonProperty("director")
-    public void setDirector(String director) {
-        this.director = director;
-    }
-
     public void setDirector(Document document) {
         Elements elements = document.select("td[itemprop=director]");
         if (elements.isEmpty() || elements.size() > 1) {
@@ -94,16 +132,6 @@ public class Movie {
         }
 
         this.director = elements.get(0).children().isEmpty() ? "-" : elements.get(0).child(0).text();
-    }
-
-    @JsonProperty("genres")
-    public List<String> getGenres() {
-        return genres;
-    }
-
-    @JsonProperty("genres")
-    public void setGenres(List<String> genres) {
-        this.genres = genres;
     }
 
     public void setGenres(Document document) {
@@ -122,16 +150,6 @@ public class Movie {
                 .collect(Collectors.toList()));
     }
 
-    @JsonProperty("actors")
-    public List<String> getActors() {
-        return actors;
-    }
-
-    @JsonProperty("actors")
-    public void setActors(List<String> actors) {
-        this.actors = actors;
-    }
-
     public void setActors(Document document) {
         actors = new ArrayList<>();
         Elements elements = document.select("li[itemprop=actors]");
@@ -141,16 +159,6 @@ public class Movie {
         }
     }
 
-    @JsonProperty("year")
-    public Integer getYear() {
-        return year;
-    }
-
-    @JsonProperty("year")
-    public void setYear(Integer year) {
-        this.year = year;
-    }
-
     public void setYear(Document document) {
         Elements elements = document.select("a[href^=/lists/m_act%5Byear%5D/]");
         if (elements.isEmpty() || elements.size() > 1) {
@@ -158,24 +166,6 @@ public class Movie {
         }
 
         this.year = Integer.parseInt(elements.get(0).text());
-    }
-
-    @JsonProperty("keywords")
-    public List<String> getKeywords() {
-        return keywords;
-    }
-
-    @JsonProperty("keywords")
-    public void setKeywords(List<String> keywords) {
-        this.keywords = keywords;
-    }
-
-    public void fillInFields(Document document) {
-        setTitle(document);
-        setYear(document);
-        setDirector(document);
-        setGenres(document);
-        setActors(document);
     }
 
     @Override

@@ -1,14 +1,14 @@
 package ru.ovsyannikov.clustering;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import ru.ovsyannikov.MovieStorageHelper;
-import ru.ovsyannikov.clustering.model.ClusterCenter;
-import ru.ovsyannikov.clustering.model.DataSet;
-import ru.ovsyannikov.clustering.model.DistanceInfo;
-import ru.ovsyannikov.clustering.model.NonDuplicateDataSet;
+import ru.ovsyannikov.clustering.model.*;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import java.util.*;
@@ -26,13 +26,38 @@ public class KMeansProcessor {
     private Random random = new Random();
     private NonDuplicateDataSet moviesSet;
     private List<Movie> movies;
-    private Multimap<String, DistanceInfo<String>> distances;
+    private Map<DistanceKey, Double> distances = new HashMap<>();
 
     public KMeansProcessor(List<Movie> movies) {
-        CategoricalDistanceProcessor distanceProcessor = new CategoricalDistanceProcessor();
-        this.distances = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
+        this(movies, null);
+    }
+
+    public KMeansProcessor(List<Movie> movies, JdbcTemplate template) {
+        distances = new HashMap<>();
+        Multimap<String, DistanceInfo<String>> dist = getStringDistanceInfoMultimap(movies, template);
+        for (String key : dist.keySet()) {
+            for (DistanceInfo<String> info : dist.get(key)) {
+                distances.put(new DistanceKey(key, info.getCollection1(), info.getCollection2()), info.getDistance());
+                distances.put(new DistanceKey(key, info.getCollection2(), info.getCollection1()), info.getDistance());
+            }
+        }
+
         this.moviesSet = new NonDuplicateDataSet(new DataSet(movies));
         this.movies = movies;
+    }
+
+    private Multimap<String, DistanceInfo<String>> getStringDistanceInfoMultimap(List<Movie> movies, JdbcTemplate template) {
+        Multimap<String, DistanceInfo<String>> dist;CategoricalDistanceProcessor distanceProcessor = new CategoricalDistanceProcessor();
+        if (template != null) {
+            dist = HashMultimap.create();
+            List<DistanceInfo<String>> infoList = template.query("select * from distances", new BeanPropertyRowMapper(DistanceInfo.class));
+            for (DistanceInfo<String> info : infoList) {
+                dist.put(info.getType(), info);
+            }
+        } else {
+            dist = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
+        }
+        return dist;
     }
 
     public HashMap<ClusterCenter, List<Movie>> performClustering(int numClusters) {
@@ -87,22 +112,22 @@ public class KMeansProcessor {
         double dist = 0.0;
         for (List<String> actors : moviesSet.getActors()) {
             double actorsDistance = (double) center.getActors().getOrDefault(actors, 0) / center.getNc() *
-                    DistanceUtils.getDistance(new ArrayList<>(distances.get("actors")), movie.getActors(), actors);
+                    distances.getOrDefault(new DistanceKey("actors", movie.getActors(), actors), 0.0);
             dist += actorsDistance * actorsDistance;
         }
         for (List<String> genres : moviesSet.getGenres()) {
             double genresDistance = (double) center.getGenres().getOrDefault(genres, 0) / center.getNc() *
-                    DistanceUtils.getDistance(new ArrayList<>(distances.get("genres")), movie.getGenres(), genres);
+                    distances.getOrDefault(new DistanceKey("genres", movie.getGenres(), genres), 0.0);
             dist += genresDistance * genresDistance;
         }
         for (List<String> directors : moviesSet.getDirectors()) {
             double directorsDistance = (double) center.getDirectors().getOrDefault(directors, 0) / center.getNc() *
-                    DistanceUtils.getDistance(new ArrayList<>(distances.get("directors")), Arrays.asList(movie.getDirector()), directors);
+                    distances.getOrDefault(new DistanceKey("directors", Arrays.asList(movie.getDirector()), directors), 0.0);
             dist += directorsDistance * directorsDistance;
         }
         for (List<String> keywords : moviesSet.getKeywords()) {
             double keywordsDistance = (double) center.getKeywords().getOrDefault(keywords, 0) / center.getNc() *
-                    DistanceUtils.getDistance(new ArrayList<>(distances.get("keywords")), movie.getKeywords(), keywords);
+                    distances.getOrDefault(new DistanceKey("keywords", movie.getKeywords(), keywords), 0.0);
             dist += keywordsDistance * keywordsDistance;
         }
 
@@ -112,15 +137,10 @@ public class KMeansProcessor {
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
-        KMeansProcessor processor = new KMeansProcessor(storageHelper.getMovies("votes2"));
+        JdbcTemplate template = context.getBean(JdbcTemplate.class);
+        KMeansProcessor processor = new KMeansProcessor(storageHelper.getMovies("votes2"), template);
 
-        for (Movie movie1 : processor.movies) {
-            processor.movies.stream().filter(movie2 -> !movie1.equals(movie2)).forEach(movie2 ->
-                System.out.println(movie1.getTitle() + " vs. " + movie2.getTitle() + " = " +
-                        processor.distance(movie1, new ClusterCenter(Arrays.asList(movie2)))));
-        }
-
-        HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.performClustering(2);
+        HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.performClustering((int) Math.sqrt(processor.movies.size() / 2));
         System.out.println(clusteredMovies);
     }
 }

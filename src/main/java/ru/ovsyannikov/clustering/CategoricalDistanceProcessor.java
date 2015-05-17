@@ -3,9 +3,11 @@ package ru.ovsyannikov.clustering;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
 import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
@@ -18,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Class for calculating distances between categorical attributes of movies
@@ -36,33 +39,41 @@ public class CategoricalDistanceProcessor {
     // TODO: refactor – provide movies attributes as a map
     public Multimap<String, DistanceInfo<String>> calculateAttributesDistances(DataSet dataSet) {
         Multimap<String, DistanceInfo<String>> result = Multimaps.synchronizedSetMultimap(HashMultimap.create());
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        ExecutorService executorService = Executors.newFixedThreadPool(32);
         List<Future> futures = new ArrayList<>();
         // actors
-        futures.add(executorService.submit(() -> {
-            for (List<String> actors0 : dataSet.getActors()) {
-                for (List<String> actors1 : dataSet.getActors()) {
-                    if (!actors0.equals(actors1)) {
-                        double sum = 0;
-                        // actors-genres
-                        sum += findMax(dataSet.getActors(), dataSet.getGenres(), actors0, actors1);
-                        // actors-directors
-                        sum += findMax(dataSet.getActors(), dataSet.getDirectors(), actors0, actors1);
-                        // actors-keywords
-                        sum += findMax(dataSet.getActors(), dataSet.getKeywords(), actors0, actors1);
-                        DistanceInfo<String> info = new DistanceInfo<>(actors0, actors1, "actors", sum / 3);
-                        result.put("actors", info);
-                    }
+        AtomicInteger actorsCount = new AtomicInteger(0);
+        for (int i = 0; i < dataSet.getActors().size(); i++) {
+            final int fi = i;
+            futures.add(executorService.submit(() -> {
+                for (int j = 0; j < fi; j++) {
+                    List<String> actors0 = dataSet.getActors().get(fi);
+                    List<String> actors1 = dataSet.getActors().get(j);
+                    double sum = 0;
+
+                    // actors-genres
+                    sum += findMax(dataSet.getActors(), dataSet.getGenres(), actors0, actors1);
+                    // actors-directors
+                    sum += findMax(dataSet.getActors(), dataSet.getDirectors(), actors0, actors1);
+                    // actors-keywords
+                    sum += findMax(dataSet.getActors(), dataSet.getKeywords(), actors0, actors1);
+                    DistanceInfo<String> info = new DistanceInfo<>(actors0, actors1, "actors", sum / 3);
+                    result.put("actors", info);
+                    System.out.println("actors: " + actorsCount.incrementAndGet());
                 }
-            }
-            logger.info("actors submission finished");
-        }));
+            }));
+        }
         // genres
-        futures.add(executorService.submit(() -> {
-            for (List<String> genres0 : dataSet.getGenres()) {
-                for (List<String> genres1 : dataSet.getGenres()) {
-                    if (!genres0.equals(genres1)) {
+        AtomicInteger genresCount = new AtomicInteger(0);
+        for (int i = 0; i < dataSet.getGenres().size(); i++) {
+            final int fi = i;
+            futures.add(executorService.submit(() -> {
+                try {
+                    for (int j = 0; j < fi; j++) {
+                        List<String> genres0 = dataSet.getGenres().get(fi);
+                        List<String> genres1 = dataSet.getGenres().get(j);
                         double sum = 0;
+
                         // genres-directors
                         sum += findMax(dataSet.getGenres(), dataSet.getDirectors(), genres0, genres1);
                         // genres-keywords
@@ -71,17 +82,24 @@ public class CategoricalDistanceProcessor {
                         sum += findMax(dataSet.getGenres(), dataSet.getActors(), genres0, genres1);
                         DistanceInfo<String> info = new DistanceInfo<>(genres0, genres1, "genres", sum / 3);
                         result.put("genres", info);
+                        System.out.println("genres: " + genresCount.incrementAndGet());
                     }
+                } catch (Throwable e) {
+                    logger.error("ERROR", e);
                 }
-            }
-            logger.info("genres submission finished");
-        }));
+            }));
+        }
         // directors
-        futures.add(executorService.submit(() -> {
-            for (List<String> directors0 : dataSet.getDirectors()) {
-                for (List<String> directors1 : dataSet.getDirectors()) {
-                    if (!directors0.equals(directors1)) {
+        AtomicInteger directorsCount = new AtomicInteger(0);
+        for (int i = 0; i < dataSet.getDirectors().size(); i++) {
+            final int fi = i;
+            futures.add(executorService.submit(() -> {
+                try {
+                    for (int j = 0; j < fi; j++) {
+                        List<String> directors0 = dataSet.getDirectors().get(fi);
+                        List<String> directors1 = dataSet.getDirectors().get(j);
                         double sum = 0;
+
                         // directors-keywords
                         sum += findMax(dataSet.getDirectors(), dataSet.getKeywords(), directors0, directors1);
                         // directors-actors
@@ -90,39 +108,46 @@ public class CategoricalDistanceProcessor {
                         sum += findMax(dataSet.getDirectors(), dataSet.getGenres(), directors0, directors1);
                         DistanceInfo<String> info = new DistanceInfo<>(directors0, directors1, "directors", sum / 3);
                         result.put("directors", info);
+                        System.out.println("directors: " + directorsCount.incrementAndGet());
                     }
+                } catch (Throwable e) {
+                    logger.error("ERROR", e);
                 }
-            }
-            logger.info("directors submission finished");
-        }));
+            }));
+        }
         // keywords
-        futures.add(executorService.submit(() -> {
-            for (List<String> keywords0 : dataSet.getKeywords()) {
-                for (List<String> keywords1 : dataSet.getKeywords()) {
-                    if (!keywords0.equals(keywords1)) {
-                        double sum = 0;
-                        // keywords-actors
-                        sum += findMax(dataSet.getKeywords(), dataSet.getActors(), keywords0, keywords1);
-                        // keywords-genres
-                        sum += findMax(dataSet.getKeywords(), dataSet.getGenres(), keywords0, keywords1);
-                        // keywords-directors
-                        sum += findMax(dataSet.getKeywords(), dataSet.getDirectors(), keywords0, keywords1);
-                        DistanceInfo<String> info = new DistanceInfo<>(keywords0, keywords1, "keywords", sum / 3);
-                        result.put("keywords", info);
-                    }
+        AtomicInteger keywordsCount = new AtomicInteger(0);
+        for (int i = 0; i < dataSet.getKeywords().size(); i++) {
+            final int fi = i;
+            futures.add(executorService.submit(() -> {
+                for (int j = 0; j < fi; j++) {
+                    List<String> keywords0 = dataSet.getKeywords().get(fi);
+                    List<String> keywords1 = dataSet.getKeywords().get(j);
+                    double sum = 0;
+
+                    // keywords-actors
+                    sum += findMax(dataSet.getKeywords(), dataSet.getActors(), keywords0, keywords1);
+                    // keywords-genres
+                    sum += findMax(dataSet.getKeywords(), dataSet.getGenres(), keywords0, keywords1);
+                    // keywords-directors
+                    sum += findMax(dataSet.getKeywords(), dataSet.getDirectors(), keywords0, keywords1);
+                    DistanceInfo<String> info = new DistanceInfo<>(keywords0, keywords1, "keywords", sum / 3);
+                    result.put("keywords", info);
+                    System.out.println("keywords: " + keywordsCount.incrementAndGet());
                 }
-            }
-            logger.info("keywords submission finished");
-        }));
+            }));
+        }
+
         for (Future future : futures) {
             try {
                 future.get();
             } catch (InterruptedException | ExecutionException e) {
-                logger.info("ERROR", e);
+                logger.error("ERROR", e);
             }
         }
 
         executorService.shutdownNow();
+        logger.info("distances calculation finished");
         return result;
     }
 
@@ -173,9 +198,7 @@ public class CategoricalDistanceProcessor {
         for (int i = 0; i < attributes1.size(); i++) {
             Double similarity1 = ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
             value2Occurrence += similarity1;
-            if (similarity1 > 0) {
-                coOccurrence += similarity1 * ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
-            }
+            coOccurrence += ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
         }
 
         if (value2Occurrence == 0.0) {
@@ -188,9 +211,22 @@ public class CategoricalDistanceProcessor {
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
+        JdbcTemplate template = context.getBean(JdbcTemplate.class);
 
         CategoricalDistanceProcessor processor = new CategoricalDistanceProcessor();
         Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances(new DataSet(storageHelper.getMovies("votes2")));
-        System.out.println(distances);
+        for (String type : distances.keySet()) {
+            StringBuilder sb = new StringBuilder("insert into distances values ");
+            for (DistanceInfo<String> distanceInfo : distances.get(type)) {
+                sb.append("('").append(type).append("','").append(StringUtils.join(",", distanceInfo.getCollection1())).append("','")
+                        .append(StringUtils.join(",", distanceInfo.getCollection2())).append("',")
+                        .append(distanceInfo.getDistance()).append("),");
+            }
+
+            sb.setLength(sb.length() - 1);
+            if (!sb.toString().endsWith("values")) {
+                template.update(sb.toString());
+            }
+        }
     }
 }

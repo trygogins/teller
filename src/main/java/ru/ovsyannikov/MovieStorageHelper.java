@@ -1,6 +1,7 @@
 package ru.ovsyannikov;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +18,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author Georgii Ovsiannikov
@@ -37,6 +39,9 @@ public class MovieStorageHelper {
             movie.setActors(Arrays.asList(StringUtils.split(resultSet.getString("actors"), ",")));
             movie.setGenres(Arrays.asList(StringUtils.split(resultSet.getString("genres"), ",")));
 
+            List<String> votes = Arrays.asList(StringUtils.split(resultSet.getString("user_votes"), ","));
+            movie.setVotes(votes.stream().map(v -> NumberUtils.createInteger(v.split("-")[1])).collect(Collectors.toList()));
+
             result.add(movie);
         }
 
@@ -48,6 +53,7 @@ public class MovieStorageHelper {
 
     @Autowired
     public TransactionTemplate transactionTemplate;
+
 
     public Boolean saveMovie(Movie movie) {
         return transactionTemplate.execute(transactionStatus -> {
@@ -122,23 +128,12 @@ public class MovieStorageHelper {
         return movies.get(0);
     }
 
-    public List<Movie> getMovies(List<Long> movieIds) {
-        return getMovies(movieIds, "movie_id");
-    }
-
-    public List<Movie> getMoviesByKinopoiskId(List<Long> kinopoiskIds) {
-        return getMovies(kinopoiskIds, "kinopoisk_id");
-    }
-
-    private List<Movie> getMovies(List<Long> ids, String columnName) {
-        return template.query("select m.*, group_concat(distinct a.name) as actors, group_concat(distinct g.genre) as genres from movies m " +
-                "join movie_actors ma on m.movie_id = ma.movie_id join actors a on ma.actor_id = a.actor_id " +
-                "join movie_genres mg on m.movie_id = mg.movie_id join genres g on mg.genre_id = g.genre_id where m." + columnName + " in (" + StringUtils.join(ids, ",") + ") " +
-                "group by m.movie_id", MOVIE_EXTRACTOR);
-    }
-
     public Integer getVotesCount(Long userId) {
         return template.queryForObject("select count(*) from votes where user_id = ?", Integer.class, userId);
+    }
+
+    public int setMovieVote(Long userId, Long movieId, Integer vote) {
+        return template.update("insert into votes values (?,?,now(),?)", userId, movieId, vote);
     }
 
     public List<Movie> getMoviesToVote(Long userId) {
@@ -150,12 +145,27 @@ public class MovieStorageHelper {
                 "where watched.kinopoisk_id is null limit 20", new SingleColumnRowMapper<>(Long.class), userId));
     }
 
-    public int setMovieVote(Long userId, Long movieId, Integer vote) {
-        return template.update("insert into votes values (?,?,now(),?)", userId, movieId, vote);
-    }
-
     public List<Movie> getMovies(String tableName) {
         return getMoviesByKinopoiskId(template.query("select distinct kinopoisk_id from " + tableName, new SingleColumnRowMapper<>(Long.class)));
+    }
+
+    public List<Movie> getMovies(List<Long> movieIds) {
+        return getMovies(movieIds, "movie_id");
+    }
+
+    public List<Movie> getMoviesByKinopoiskId(List<Long> kinopoiskIds) {
+        return getMovies(kinopoiskIds, "kinopoisk_id");
+    }
+
+    private List<Movie> getMovies(List<Long> ids, String columnName) {
+        return template.query("select m.*, group_concat(distinct a.name) as actors, group_concat(distinct g.genre) as genres, " +
+                "group_concat(distinct v.user_id, '-', v.vote) as user_votes " +
+                "from movies m " +
+                "join movie_actors ma on m.movie_id = ma.movie_id join actors a on ma.actor_id = a.actor_id " +
+                "join movie_genres mg on m.movie_id = mg.movie_id join genres g on mg.genre_id = g.genre_id " +
+                "join votes3 v on m.kinopoisk_id = v.kinopoisk_id " +
+                "where m." + columnName + " in (" + StringUtils.join(ids, ",") + ") " +
+                "group by m.movie_id", MOVIE_EXTRACTOR);
     }
 
     public static void main(String[] args) {
