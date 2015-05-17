@@ -65,9 +65,17 @@ public class KMeansProcessor {
         HashMap<ClusterCenter, List<Movie>> previousClusters = new HashMap<>();
         int iterations = 0;
 
-        // randomly given centers
+        // randomly given clusters
+        List<List<Movie>> randomLists = new ArrayList<>();
         for (int i = 0; i < numClusters; i++) {
+            randomLists.add(new ArrayList<>());
             clusters.put(new ClusterCenter(Arrays.asList(movies.get(random.nextInt(movies.size())))), new ArrayList<>());
+        }
+        for (Movie movie : movies) {
+            randomLists.get(random.nextInt(numClusters)).add(movie);
+        }
+        for (List<Movie> movieList : randomLists) {
+            clusters.put(new ClusterCenter(movieList), new ArrayList<>());
         }
 
         while (true) {
@@ -138,7 +146,7 @@ public class KMeansProcessor {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
         JdbcTemplate template = context.getBean(JdbcTemplate.class);
-        KMeansProcessor processor = new KMeansProcessor(storageHelper.getMovies("votes2"), template);
+        KMeansProcessor processor = new KMeansProcessor(storageHelper.getMovies("votes3"), template);
 
         HashMap<ClusterCenter, List<Movie>> clusteredMovies = processor.performClustering((int) Math.sqrt(processor.movies.size() / 2));
         System.out.println(clusteredMovies);

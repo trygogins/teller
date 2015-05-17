@@ -196,8 +196,7 @@ public class CategoricalDistanceProcessor {
         double coOccurrence = 0;
         double value2Occurrence = 0;
         for (int i = 0; i < attributes1.size(); i++) {
-            Double similarity1 = ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
-            value2Occurrence += similarity1;
+            value2Occurrence += ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
             coOccurrence += ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
         }
 
@@ -214,7 +213,7 @@ public class CategoricalDistanceProcessor {
         JdbcTemplate template = context.getBean(JdbcTemplate.class);
 
         CategoricalDistanceProcessor processor = new CategoricalDistanceProcessor();
-        Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances(new DataSet(storageHelper.getMovies("votes2")));
+        Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances(new DataSet(storageHelper.getMovies("votes3")));
         for (String type : distances.keySet()) {
             StringBuilder sb = new StringBuilder("insert into distances values ");
             for (DistanceInfo<String> distanceInfo : distances.get(type)) {
