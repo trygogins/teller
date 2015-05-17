@@ -70,18 +70,7 @@ public class ComparisonUtils {
             }
         }
 
-        if (array1.size() + array2.size() == 0) {
-            return 0.0;
-        }
-
-        return 1.0 - similar / Math.sqrt(array1.size() * array2.size());
-
-//        HashSet<T> items = new HashSet<>(array1);
-//        items.addAll(array2);
-//        if (items.isEmpty()) {
-//            return 0.0;
-//        }
-//
-//        return (array1.size() + array2.size() - items.size()) / Math.sqrt(array1.size() * array2.size());
+        int denominator = array1.size() * array2.size();
+        return denominator == 0 ? 0 : similar / Math.sqrt(denominator);
     }
 }

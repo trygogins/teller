@@ -40,7 +40,10 @@ public class MovieStorageHelper {
             movie.setGenres(Arrays.asList(StringUtils.split(resultSet.getString("genres"), ",")));
 
             List<String> votes = Arrays.asList(StringUtils.split(resultSet.getString("user_votes"), ","));
-            movie.setVotes(votes.stream().map(v -> NumberUtils.createInteger(v.split("-")[1])).collect(Collectors.toList()));
+            movie.setVotes(votes.stream()
+                    .map(v -> new Movie.UserVote(NumberUtils.createLong(v.split("-")[0]),
+                            NumberUtils.createInteger(v.split("-")[1])))
+                    .collect(Collectors.toList()));
 
             result.add(movie);
         }

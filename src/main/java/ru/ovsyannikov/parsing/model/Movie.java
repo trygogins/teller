@@ -14,6 +14,36 @@ import java.util.stream.Collectors;
  */
 public class Movie {
 
+    public static class UserVote {
+
+        private Long userId;
+        private Integer vote;
+
+        public UserVote() {
+        }
+
+        public UserVote(Long userId, Integer vote) {
+            this.userId = userId;
+            this.vote = vote;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public void setUserId(Long userId) {
+            this.userId = userId;
+        }
+
+        public Integer getVote() {
+            return vote;
+        }
+
+        public void setVote(Integer vote) {
+            this.vote = vote;
+        }
+    }
+
     private Long id;
     private Long kinopoiskId;
     private String title;
@@ -23,7 +53,7 @@ public class Movie {
     private List<String> keywords = new ArrayList<>();
     private Integer year;
 
-    private List<Integer> votes;
+    private List<UserVote> votes;
 
     public Movie() {
         // nothing to do here
@@ -100,11 +130,11 @@ public class Movie {
         this.keywords = keywords;
     }
 
-    public List<Integer> getVotes() {
+    public List<UserVote> getVotes() {
         return votes;
     }
 
-    public void setVotes(List<Integer> votes) {
+    public void setVotes(List<UserVote> votes) {
         this.votes = votes;
     }
 

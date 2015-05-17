@@ -3,12 +3,8 @@ package ru.ovsyannikov.clustering;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
-import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.jdbc.core.JdbcTemplate;
-import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.clustering.model.DataSet;
 import ru.ovsyannikov.clustering.model.DistanceInfo;
 
@@ -50,6 +46,11 @@ public class CategoricalDistanceProcessor {
                     List<String> actors0 = dataSet.getActors().get(fi);
                     List<String> actors1 = dataSet.getActors().get(j);
                     double sum = 0;
+                    if (ComparisonUtils.compare(actors0, actors1)) {
+                        DistanceInfo<String> info = new DistanceInfo<>(actors0, actors1, "actors", 0);
+                        result.put("actors", info);
+                        continue;
+                    }
 
                     // actors-genres
                     sum += findMax(dataSet.getActors(), dataSet.getGenres(), actors0, actors1);
@@ -73,6 +74,11 @@ public class CategoricalDistanceProcessor {
                         List<String> genres0 = dataSet.getGenres().get(fi);
                         List<String> genres1 = dataSet.getGenres().get(j);
                         double sum = 0;
+                        if (ComparisonUtils.compare(genres0, genres1)) {
+                            DistanceInfo<String> info = new DistanceInfo<>(genres0, genres1, "genres", 0);
+                            result.put("genres", info);
+                            continue;
+                        }
 
                         // genres-directors
                         sum += findMax(dataSet.getGenres(), dataSet.getDirectors(), genres0, genres1);
@@ -99,6 +105,11 @@ public class CategoricalDistanceProcessor {
                         List<String> directors0 = dataSet.getDirectors().get(fi);
                         List<String> directors1 = dataSet.getDirectors().get(j);
                         double sum = 0;
+                        if (ComparisonUtils.compare(directors0, directors1)) {
+                            DistanceInfo<String> info = new DistanceInfo<>(directors0, directors1, "directors", 0);
+                            result.put("directors", info);
+                            continue;
+                        }
 
                         // directors-keywords
                         sum += findMax(dataSet.getDirectors(), dataSet.getKeywords(), directors0, directors1);
@@ -124,6 +135,11 @@ public class CategoricalDistanceProcessor {
                     List<String> keywords0 = dataSet.getKeywords().get(fi);
                     List<String> keywords1 = dataSet.getKeywords().get(j);
                     double sum = 0;
+                    if (ComparisonUtils.compare(keywords0, keywords1)) {
+                        DistanceInfo<String> info = new DistanceInfo<>(keywords0, keywords1, "keywords", 0);
+                        result.put("keywords", info);
+                        continue;
+                    }
 
                     // keywords-actors
                     sum += findMax(dataSet.getKeywords(), dataSet.getActors(), keywords0, keywords1);
@@ -196,8 +212,17 @@ public class CategoricalDistanceProcessor {
         double coOccurrence = 0;
         double value2Occurrence = 0;
         for (int i = 0; i < attributes1.size(); i++) {
-            value2Occurrence += ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
-            coOccurrence += ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
+            Double similarity = ComparisonUtils.getListsSimilarity(attributes1.get(i), value1);
+            value2Occurrence += similarity;
+            if (similarity > 0) {
+                coOccurrence += ComparisonUtils.getListsSimilarity(attributes2.get(i), value2);
+            }
+//            if (ComparisonUtils.compare(attributes1.get(i), value1)) {
+//                value2Occurrence += 1;
+//                if (ComparisonUtils.compare(attributes2.get(i), value2)) {
+//                    coOccurrence += 1;
+//                }
+//            }
         }
 
         if (value2Occurrence == 0.0) {
@@ -205,27 +230,5 @@ public class CategoricalDistanceProcessor {
         }
 
         return coOccurrence / value2Occurrence;
-    }
-
-    public static void main(String[] args) {
-        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
-        MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
-        JdbcTemplate template = context.getBean(JdbcTemplate.class);
-
-        CategoricalDistanceProcessor processor = new CategoricalDistanceProcessor();
-        Multimap<String, DistanceInfo<String>> distances = processor.calculateAttributesDistances(new DataSet(storageHelper.getMovies("votes3")));
-        for (String type : distances.keySet()) {
-            StringBuilder sb = new StringBuilder("insert into distances values ");
-            for (DistanceInfo<String> distanceInfo : distances.get(type)) {
-                sb.append("('").append(type).append("','").append(StringUtils.join(",", distanceInfo.getCollection1())).append("','")
-                        .append(StringUtils.join(",", distanceInfo.getCollection2())).append("',")
-                        .append(distanceInfo.getDistance()).append("),");
-            }
-
-            sb.setLength(sb.length() - 1);
-            if (!sb.toString().endsWith("values")) {
-                template.update(sb.toString());
-            }
-        }
     }
 }

@@ -40,12 +40,12 @@ public class DistanceUtils {
 
     public static List<Movie> getTestMovies() {
         List<Movie> movies = new ArrayList<>();
-        movies.add(new Movie("Godfather2", "Scorsece", Arrays.asList("crime"), Arrays.asList("De Niro")));
-        movies.add(new Movie("Good Fellas", "Coppola", Arrays.asList("crime"), Arrays.asList("De Niro")));
-        movies.add(new Movie("vertigo", "Hitchcock", Arrays.asList("thriller"), Arrays.asList("Stewart")));
-        movies.add(new Movie("N by NW", "Hitchcock", Arrays.asList("thriller"), Arrays.asList("Grant")));
-        movies.add(new Movie("Bishop's Life", "Koster", Arrays.asList("comedy"), Arrays.asList("Grant")));
-        movies.add(new Movie("Harvey", "Koster", Arrays.asList("comedy"), Arrays.asList("Stewart")));
+        movies.add(new Movie("Godfather2",      "Scorsece",  Arrays.asList("crime"),    Arrays.asList("De Niro")));
+        movies.add(new Movie("Good Fellas",     "Coppola",   Arrays.asList("crime"),    Arrays.asList("De Niro")));
+        movies.add(new Movie("vertigo",         "Hitchcock", Arrays.asList("thriller"), Arrays.asList("Stewart")));
+        movies.add(new Movie("N by NW",         "Hitchcock", Arrays.asList("thriller"), Arrays.asList("Grant")));
+        movies.add(new Movie("Bishop's Life",   "Koster",    Arrays.asList("comedy"),   Arrays.asList("Grant")));
+        movies.add(new Movie("Harvey",          "Koster",    Arrays.asList("comedy"),   Arrays.asList("Stewart")));
 
         return movies;
     }
