@@ -20,15 +20,21 @@ public class ClusterCenter {
     public ClusterCenter(List<Movie> movies) {
         Nc = movies.size();
         for (Movie movie : movies) {
-            movieTitles.add(movie.getTitle());
-            Integer count = actors.getOrDefault(movie.getActors(), 0);
-            actors.put(movie.getActors(), count + 1);
-            count = genres.getOrDefault(movie.getGenres(), 0);
-            genres.put(movie.getGenres(), count + 1);
-            count = directors.getOrDefault(Arrays.asList(movie.getDirector()), 0);
-            directors.put(Arrays.asList(movie.getDirector()), count + 1);
-            count = keywords.getOrDefault(movie.getKeywords(), 0);
-            keywords.put(movie.getKeywords(), count + 1);
+            try {
+                movieTitles.add(movie.getTitle());
+                Integer count = actors.getOrDefault(movie.getActors(), 0);
+                actors.put(movie.getActors(), count + 1);
+                count = genres.getOrDefault(movie.getGenres(), 0);
+                genres.put(movie.getGenres(), count + 1);
+                count = directors.getOrDefault(Arrays.asList(movie.getDirector()), 0);
+                directors.put(Arrays.asList(movie.getDirector()), count + 1);
+                count = keywords.getOrDefault(movie.getKeywords(), 0);
+                keywords.put(movie.getKeywords(), count + 1);
+            } catch (Throwable e) {
+                e.printStackTrace();
+                long count = movies.stream().filter(m -> m == null).count();
+                System.err.println(count);
+            }
         }
     }
 

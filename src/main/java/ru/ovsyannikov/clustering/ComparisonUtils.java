@@ -1,7 +1,9 @@
 package ru.ovsyannikov.clustering;
 
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author Georgii Ovsiannikov
@@ -12,7 +14,7 @@ public class ComparisonUtils {
     /**
      * deep comparison of maps with given structure
      */
-    public static <K, V> boolean isEqual(Map<K, List<V>> firstMap, Map<K, List<V>> secondMap) {
+    public static <K, V> boolean isEqual(ConcurrentMap<K, List<V>> firstMap, ConcurrentMap<K, List<V>> secondMap) {
         if (firstMap.size() != secondMap.size()) {
             return false;
         }
@@ -38,15 +40,20 @@ public class ComparisonUtils {
             return false;
         }
 
-        for (int i = 0; i < list1.size(); i++) {
-            if (list1.get(i) instanceof List ?
-                    compare((List) list1.get(i), (List) list2.get(i)) :
-                    !list1.get(i).equals(list2.get(i))) {
-                return false;
-            }
-        }
+        Set<T> overall = new HashSet<>();
+        overall.addAll(list1);
+        overall.addAll(list2);
+        return overall.size() == list1.size() && overall.size() == list2.size();
 
-        return true;
+//        for (int i = 0; i < list1.size(); i++) {
+//            if (list1.get(i) instanceof List ?
+//                    compare((List) list1.get(i), (List) list2.get(i)) :
+//                    !list1.get(i).equals(list2.get(i))) {
+//                return false;
+//            }
+//        }
+//
+//        return true;
     }
 
     /**

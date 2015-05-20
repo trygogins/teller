@@ -1,4 +1,4 @@
-package ru.ovsyannikov.clustering;
+package ru.ovsyannikov.elicitation;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +45,6 @@ public class SplitterDeterminingProcessor {
             double error = (un == 0 ? 0 :(ur2 - ur * ur / un)) +
                     (ln == 0 ? 0 : (lr2 - lr * lr / ln)) +
                     (hn == 0 ? 0 : (hr2 - hr * hr / hn));
-            logger.info("{}: error={}", movie.getTitle(), error);
             if (error < minError) {
                 minError = error;
                 splitter = movie;
