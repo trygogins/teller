@@ -43,17 +43,8 @@ public class ComparisonUtils {
         Set<T> overall = new HashSet<>();
         overall.addAll(list1);
         overall.addAll(list2);
-        return overall.size() == list1.size() && overall.size() == list2.size();
 
-//        for (int i = 0; i < list1.size(); i++) {
-//            if (list1.get(i) instanceof List ?
-//                    compare((List) list1.get(i), (List) list2.get(i)) :
-//                    !list1.get(i).equals(list2.get(i))) {
-//                return false;
-//            }
-//        }
-//
-//        return true;
+        return overall.size() == list1.size() && overall.size() == list2.size();
     }
 
     /**
@@ -66,6 +57,10 @@ public class ComparisonUtils {
     public static <T> Double getListsSimilarity(List<T> array1, List<T> array2) {
         if (array1 == null || array2 == null) {
             return array1 == array2 ? 1.0 : 0.0;
+        }
+
+        if (array1.isEmpty() && array2.isEmpty()) {
+            return 0.0;
         }
 
         int similar = 0;

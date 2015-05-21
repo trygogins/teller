@@ -1,21 +1,15 @@
 package ru.ovsyannikov.clustering;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-import org.apache.hadoop.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
 import ru.ovsyannikov.MovieStorageHelper;
-import ru.ovsyannikov.clustering.model.*;
-import ru.ovsyannikov.elicitation.SplitterDeterminingProcessor;
+import ru.ovsyannikov.clustering.model.ClusterCenter;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * The class contains an implementation of k-means clustering algorithm
@@ -28,90 +22,89 @@ public class KMeansProcessor {
     private static final Logger logger = LoggerFactory.getLogger(KMeansProcessor.class);
 
     private Random random = new Random();
-    private NonDuplicateDataSet moviesSet;
-    private List<Movie> movies;
-    private Map<DistanceKey, Double> distances = new HashMap<>();
 
-    public KMeansProcessor(List<Movie> movies, JdbcTemplate template) {
-        this(movies, template, false);
-    }
-
-    public KMeansProcessor(List<Movie> movies, JdbcTemplate template, boolean recalculateDistances) {
-        distances = new HashMap<>();
-        Multimap<String, DistanceInfo<String>> dist = getStringDistanceInfoMultimap(movies, template, recalculateDistances);
-        for (String key : dist.keySet()) {
-            for (DistanceInfo<String> info : dist.get(key)) {
-                distances.put(new DistanceKey(key, info.getCollection1(), info.getCollection2()), info.getDistance());
-                distances.put(new DistanceKey(key, info.getCollection2(), info.getCollection1()), info.getDistance());
+    /**
+     * Метод для кластеризации фильмов по содержимому.
+     * Количество кластеров определяется как sqrt(n/2), где n – количество фильмов.
+     * Как правило, на первых этапах кластеризации выбирается несколько настоящих кластеров,
+     * а фильмы с популярным жанром `драма` остаются в самом большом кластере.
+     * Следующими итерациями самый большой кластер разделяется на более маленькие (итерация – метод {@link #performClustering}).
+     * Когда разделение перестаёт давать результаты (5 раз было получено одинаковое количество кластеров) – кластеризация заканчивается.
+     *
+     * @param movies – список фильмов для разделения
+     * @return таблица, в которой ключ – центр кластера (взвешенный), значение – список фильмов
+     */
+    public ConcurrentMap<ClusterCenter, List<Movie>> doClustering(List<Movie> movies) {
+        int targetClustersCount = (int) Math.sqrt(movies.size() / 2); // сколько кластеров в идеале должно получиться
+        int minimumClusterSize = 5; // если кластер слишком маленький – возможно, неудачно кластеризовался (5 - эмпирическое значение)
+        int maximumClusterSize = movies.size() / targetClustersCount * 4; // если кластер слишком большой – нужно делить
+        int previousClusters = 0;
+        int stableClusters = 0;
+        ConcurrentMap<ClusterCenter, List<Movie>> clusteredMovies = performClustering(movies, targetClustersCount); // initial итерация
+        while (true) {
+            List<ClusterCenter> badCenters = Collections.synchronizedList(new ArrayList<>());
+            for (ClusterCenter clusterCenter : clusteredMovies.keySet()) {
+                List<Movie> current = clusteredMovies.get(clusterCenter);
+                // если кластер не удовлетворяет заданным размерам - добавляем в `плохие` (они потом перекластеризуются)
+                if (current.size() > maximumClusterSize || current.size() < minimumClusterSize) {
+                    badCenters.add(clusterCenter);
+                }
             }
+
+            // проверяется условие останова: если полученодостаточно кластеров
+            // либо при повторной кластеризации 5 раз не было изменений
+            if (clusteredMovies.size() - badCenters.size() >= targetClustersCount * 0.9 // 90% – т.к. никто не идеален :)
+                    || stableClusters >= 5) {
+                logger.info(stableClusters >= 5 ? "ending clustering due to stable clusters" :
+                        "ending clustering due to enough clusters acquired");
+                break;
+            }
+
+            // проверка наличия изменений в количестве кластеров
+            if (previousClusters == clusteredMovies.size() - badCenters.size()) {
+                stableClusters ++;
+            } else {
+                previousClusters = clusteredMovies.size() - badCenters.size();
+            }
+
+            // вытаскиваются фильмы для перекластеризации
+            List<Movie> moviesToRecompute = clusteredMovies.keySet().stream()
+                    .map(clusteredMovies::get)
+                    .filter(c -> minimumClusterSize > c.size() || maximumClusterSize < c.size())
+                    .flatMap(List::stream)
+                    .collect(Collectors.toList());
+            // удаляются плохие кластеры
+            badCenters.forEach(clusteredMovies::remove);
+            // перекластеризуем
+            clusteredMovies.putAll(performClustering(moviesToRecompute, targetClustersCount - clusteredMovies.size()));
         }
 
-        this.moviesSet = new NonDuplicateDataSet(new DataSet(movies));
-        this.movies = movies;
+        return clusteredMovies;
     }
 
-    private Multimap<String, DistanceInfo<String>> getStringDistanceInfoMultimap(List<Movie> movies, JdbcTemplate template, boolean recalculateDistances) {
-        Multimap<String, DistanceInfo<String>> dist;
-        CategoricalDistanceProcessor distanceProcessor = new CategoricalDistanceProcessor();
-        if (!recalculateDistances) {
-            dist = HashMultimap.create();
-            List<DistanceInfo<String>> infoList = template.query("select * from distances", new BeanPropertyRowMapper(DistanceInfo.class));
-            for (DistanceInfo<String> info : infoList) {
-                dist.put(info.getType(), info);
-            }
-        } else {
-            dist = distanceProcessor.calculateAttributesDistances(new DataSet(movies));
-            saveDistances(template, dist);
-        }
-        return dist;
-    }
-
-    private void saveDistances(JdbcTemplate template, Multimap<String, DistanceInfo<String>> distances) {
-        for (String type : distances.keySet()) {
-            StringBuilder sb = new StringBuilder("replace into distances values ");
-            for (DistanceInfo<String> distanceInfo : distances.get(type)) {
-                sb.append("('").append(type).append("','").append(StringUtils.join(",", distanceInfo.getCollection1())).append("','")
-                        .append(StringUtils.join(",", distanceInfo.getCollection2())).append("',")
-                        .append(distanceInfo.getDistance()).append(", now()),");
-            }
-
-            sb.setLength(sb.length() - 1);
-            if (!sb.toString().endsWith("values")) {
-                template.update(sb.toString());
-            }
-        }
-    }
-
+    /**
+     * Метод выполняет стандартную k-means кластеризацию фильмов.
+     * Начальные центры – наиболее удалённые друг от друга фильмы.
+     * Критерий останова - на новой итерации не произошло изменений.
+     *
+     * @param movies – список фильмов для кластеризации
+     * @param numClusters – требуемое количество кластеров
+     * @return таблица, в которой ключ – центр кластера (взвешенный), значение – список фильмов
+     */
     public ConcurrentMap<ClusterCenter, List<Movie>> performClustering(List<Movie> movies, int numClusters) {
         ConcurrentMap<ClusterCenter, List<Movie>> clusters = new ConcurrentHashMap<>();
         ConcurrentMap<ClusterCenter, List<Movie>> previousClusters = new ConcurrentHashMap<>();
         int iterations = 0;
 
-        // randomly given clusters
-//        for (int i = 0; i < numClusters; i++) {
-//            clusters.put(new ClusterCenter(Arrays.asList(movies.get(random.nextInt(movies.size())))),
-//                    Collections.synchronizedList(new ArrayList<>()));
-//        }
-
+        // наиболее удалённые фильмы выбираются как начальные центры кластеров
         List<Movie> furthestMovies = getFurthestMovies(movies, numClusters);
         for (Movie movie : furthestMovies) {
             clusters.put(new ClusterCenter(Arrays.asList(movie)), Collections.synchronizedList(new ArrayList<>()));
         }
 
-//        List<List<Movie>> randomLists = new ArrayList<>();
-//        for (int i = 0; i < numClusters; i++) {
-//            randomLists.add(Collections.synchronizedList(new ArrayList<>()));
-//        }
-//        for (Movie movie : movies) {
-//            randomLists.get(random.nextInt(numClusters)).add(movie);
-//        }
-//        for (List<Movie> movieList : randomLists) {
-//            clusters.put(new ClusterCenter(movieList), Collections.synchronizedList(new ArrayList<>()));
-//        }
-
         while (true) {
             iterations ++;
-            AtomicInteger processed = new AtomicInteger(0);
+            // ближайший кластер считается в 32 потока, т.к. иначе по списку movies (длиной порядка нескольких тысяч) долго идти
             ExecutorService executorService = Executors.newFixedThreadPool(32);
             for (Movie movie : movies) {
                 executorService.submit(() -> {
@@ -126,7 +119,6 @@ public class KMeansProcessor {
                     }
 
                     clusters.getOrDefault(minDistanceCenter, Collections.synchronizedList(new ArrayList<>())).add(movie);
-                    logger.info("processed={}%", (double) processed.incrementAndGet() * 100 / movies.size());
                 });
             }
 
@@ -139,10 +131,12 @@ public class KMeansProcessor {
                 logger.error("ERROR", e);
             }
 
+            // проверка условия останова
             if (ComparisonUtils.isEqual(clusters, previousClusters)) {
                 break;
             }
 
+            // дальше сохранение результатов итерации в previousClusters
             previousClusters.clear();
             for (ClusterCenter clusterCenter : clusters.keySet()) {
                 previousClusters.put(clusterCenter, clusters.get(clusterCenter));
@@ -158,10 +152,17 @@ public class KMeansProcessor {
         return clusters;
     }
 
+    /**
+     * из коллекции выбирается заданное количество наиболее удалённых друг от друга (по содержимому) фильмов.
+     *
+     * @param movies – коллекция фильмов для выбора наиболее удалённых
+     * @param requiredMovies – требуемое количество фильмов
+     * @return набор (Set) наиболее удалённых друг от друга фильмов
+     */
     private List<Movie> getFurthestMovies(List<Movie> movies, int requiredMovies) {
-        List<Movie> result = new ArrayList<>();
+        Set<Movie> result = new HashSet<>();
         for (Movie movie : movies) {
-            if (movie.getGenres().contains("новости")) {
+            if (movie.getGenres().contains("мультфильм")) {
                 result.add(movie);
                 break;
             }
@@ -176,7 +177,8 @@ public class KMeansProcessor {
             double maxDistance = 0;
             for (Movie movie : movies) {
                 result.add(movie);
-                double distance = getAverageDistance(result);
+                // выбирается фильм, при добавлении которого в набор достигается максимальное среднее расстояние между парами
+                double distance = getAverageDistance(new ArrayList<>(result));
                 if (distance > maxDistance) {
                     maxDistanceMovie = movie;
                     maxDistance = distance;
@@ -188,9 +190,14 @@ public class KMeansProcessor {
             result.add(maxDistanceMovie);
         }
 
-        return result;
+        return new ArrayList<>(result);
     }
 
+    /**
+     * Подсчёт среднего расстояния между парами фильмов в списке
+     * @param movies – список фильмов
+     * @return – сумма расстояний между всеми парами, деленая на количество фильмов в списке movies
+     */
     private double getAverageDistance(List<Movie> movies) {
         int count = 0;
         double distance = 0;
@@ -204,10 +211,10 @@ public class KMeansProcessor {
         return distance / count;
     }
 
-
     public double distance(Movie movie1, Movie movie2) {
         return distance(movie1, new ClusterCenter(Arrays.asList(movie2)));
     }
+
     /**
      * Calculates distance between a movie and a cluster center using `Cluster centers for mixed data sets`
      */
@@ -234,80 +241,22 @@ public class KMeansProcessor {
                     (1 - ComparisonUtils.getListsSimilarity(directorsList, Arrays.asList(movie.getDirector())));
             dist += directorsDistance * directorsDistance;
         }
-//        for (List<String> keywordsList : center.getKeywords().keySet()) {
-//            double keywordsDistance = (double) center.getKeywords().get(keywordsList) / center.getNc() *
-//                    (1 - ComparisonUtils.getListsSimilarity(keywordsList, movie.getKeywords()));
-//            dist += keywordsDistance * keywordsDistance;
-//        }
+        for (List<String> keywordsList : center.getKeywords().keySet()) {
+            double keywordsDistance = (double) center.getKeywords().get(keywordsList) / center.getNc() *
+                    (1 - ComparisonUtils.getListsSimilarity(keywordsList, movie.getKeywords()));
+            dist += keywordsDistance * keywordsDistance;
+        }
 
         return dist * Math.sqrt(center.getNc());
-//        for (List<String> genres : moviesSet.getGenres()) {
-//            double genresDistance = (double) center.getGenres().getOrDefault(genres, 0) / center.getNc() *
-//                    distances.getOrDefault(new DistanceKey("genres", movie.getGenres(), genres), 0.0);
-//            dist += genresDistance * genresDistance;
-//        }
-//        for (List<String> actors : moviesSet.getActors()) {
-//            double actorsDistance = (double) center.getActors().getOrDefault(actors, 0) / center.getNc() *
-//                    distances.getOrDefault(new DistanceKey("actors", movie.getActors(), actors), 0.0);
-//            dist += actorsDistance * actorsDistance;
-//        }
-//        for (List<String> directors : moviesSet.getDirectors()) {
-//            double directorsDistance = (double) center.getDirectors().getOrDefault(directors, 0) / center.getNc() *
-//                    distances.getOrDefault(new DistanceKey("directors", Arrays.asList(movie.getDirector()), directors), 0.0);
-//            dist += directorsDistance * directorsDistance;
-//        }
-//        for (List<String> keywords : moviesSet.getKeywords()) {
-//            double keywordsDistance = (double) center.getKeywords().getOrDefault(keywords, 0) / center.getNc() *
-//                    distances.getOrDefault(new DistanceKey("keywords", movie.getKeywords(), keywords), 0.0);
-//            dist += keywordsDistance * keywordsDistance;
-//        }
-//
-//        return dist;
     }
 
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper storageHelper = context.getBean(MovieStorageHelper.class);
-        JdbcTemplate template = context.getBean(JdbcTemplate.class);
         List<Movie> movies = storageHelper.getMovies("votes5");
-        SplitterDeterminingProcessor splitterProcessor = new SplitterDeterminingProcessor();
 
-        KMeansProcessor processor = new KMeansProcessor(movies, template);
-
-        // требуемое количество кластеров
-        int targetClustersCount = (int) Math.sqrt(movies.size() / 2);
-        // примерный размер кластера (чтобы не было кластеров размером 1 и т. п.)
-        int minimalClusterSize = (int) (0.3 * movies.size() / targetClustersCount);
-        ConcurrentMap<ClusterCenter, List<Movie>> clusteredMovies = processor.performClustering(movies, targetClustersCount);
-
-        // пока не разделим на достаточное количество кластеров
-        while (targetClustersCount > clusteredMovies.size()) {
-            List<Movie> largestList = Collections.synchronizedList(new ArrayList<>());
-            ClusterCenter largestCenter = null;
-            List<ClusterCenter> centersToRemove = Collections.synchronizedList(new ArrayList<>());
-
-            for (ClusterCenter clusterCenter : clusteredMovies.keySet()) {
-                List<Movie> current = clusteredMovies.get(clusterCenter);
-                if (largestList.size() < current.size()) {
-                    largestList = current;
-                    largestCenter = clusterCenter;
-                }
-
-                if (current.size() < minimalClusterSize) {
-                    centersToRemove.add(clusterCenter);
-                }
-            }
-            // выпиливаем самый жирный кластер – он, как правило, огромный и состоит из драм
-            clusteredMovies.remove(largestCenter);
-            // выпиливаем маленькие кластеры и добавляем их элементы для кластеризации
-            final List<Movie> finalLargestList = largestList;
-//            centersToRemove.forEach(c -> finalLargestList.addAll(clusteredMovies.remove(c)));
-            clusteredMovies.putAll(processor.performClustering(finalLargestList, targetClustersCount - clusteredMovies.keySet().size()));
-        }
-
-        for (ClusterCenter center : clusteredMovies.keySet()) {
-            Movie splitter = splitterProcessor.getSplitter(clusteredMovies.get(center));
-            System.out.println(splitter);
-        }
+        KMeansProcessor processor = new KMeansProcessor();
+        ConcurrentMap<ClusterCenter, List<Movie>> result = processor.doClustering(movies);
+        System.out.println(result);
     }
 }

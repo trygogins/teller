@@ -147,7 +147,7 @@ public class Movie {
     }
 
     public void setTitle(Document document) {
-        Elements elements = document.select("h1.moviename-big[itemprop=name]");
+        Elements elements = document.select("span[itemprop=alternativeHeadline]");
         if (elements.isEmpty() || elements.size() > 1) {
             throw new IllegalArgumentException("Incorrect number of items for title!");
         }

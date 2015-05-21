@@ -54,6 +54,10 @@ public class ClusterCenter {
         return keywords;
     }
 
+    public List<String> getMovieTitles() {
+        return movieTitles;
+    }
+
     public Integer getNc() {
         return Nc;
     }

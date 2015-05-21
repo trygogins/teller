@@ -13,9 +13,9 @@ import java.util.stream.Collectors;
  * @author Georgii Ovsiannikov
  * @since 5/17/15
  */
-public class SplitterDeterminingProcessor {
+public class SplitterDeterminant {
 
-    private static final Logger logger = LoggerFactory.getLogger(SplitterDeterminingProcessor.class);
+    private static final Logger logger = LoggerFactory.getLogger(SplitterDeterminant.class);
 
     public Movie getSplitter(List<Movie> movies) {
         // total
