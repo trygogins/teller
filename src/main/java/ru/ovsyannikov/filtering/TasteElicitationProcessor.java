@@ -1,29 +1,24 @@
 package ru.ovsyannikov.filtering;
 
-import org.apache.mahout.cf.taste.common.TasteException;
-import org.apache.mahout.cf.taste.impl.model.jdbc.MySQLJDBCDataModel;
-import org.apache.mahout.cf.taste.impl.model.jdbc.ReloadFromJDBCDataModel;
-import org.apache.mahout.cf.taste.impl.neighborhood.NearestNUserNeighborhood;
-import org.apache.mahout.cf.taste.impl.recommender.GenericUserBasedRecommender;
-import org.apache.mahout.cf.taste.impl.similarity.PearsonCorrelationSimilarity;
-import org.apache.mahout.cf.taste.model.DataModel;
-import org.apache.mahout.cf.taste.neighborhood.UserNeighborhood;
-import org.apache.mahout.cf.taste.recommender.RecommendedItem;
-import org.apache.mahout.cf.taste.similarity.UserSimilarity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.clustering.EntropyEstimator;
 import ru.ovsyannikov.clustering.KMeansProcessor;
 import ru.ovsyannikov.clustering.model.ClusterCenter;
+import ru.ovsyannikov.collaborative.MovieMarkForecaster;
+import ru.ovsyannikov.collaborative.UserNeighboursProcessor;
 import ru.ovsyannikov.elicitation.SplitterDeterminant;
 import ru.ovsyannikov.exceptions.NotEnoughVotesException;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
-import javax.sql.DataSource;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
@@ -35,48 +30,66 @@ import java.util.stream.Collectors;
 public class TasteElicitationProcessor {
 
     public static final Integer MINIMAL_VOTES = 20;
+    private static final Logger logger = LoggerFactory.getLogger(TasteElicitationProcessor.class);
 
-    @Autowired
-    private DataSource dataSource;
     @Autowired
     private MovieStorageHelper movieStorageHelper;
+    @Autowired
+    private JdbcTemplate template;
 
-    private DataModel dataModel;
     private List<List<Movie>> movieClusters;
     private SplitterDeterminant splitterDeterminant = new SplitterDeterminant();
+    private Map<Long, List<UserNeighboursProcessor.UserVote>> votesByUser;
 
     @PostConstruct
     public void init() {
-        try {
-            dataModel = new ReloadFromJDBCDataModel(new MySQLJDBCDataModel(dataSource, "votes", "user_id", "kinopoisk_id", "vote", "dt"));
-            KMeansProcessor clusteringProcessor = new KMeansProcessor();
-            ConcurrentMap<ClusterCenter, List<Movie>> clusters = clusteringProcessor.doClustering(movieStorageHelper.getMovies("votes5"));
-            movieClusters = clusters.keySet().stream()
-                    .map(clusters::get)
-                    .collect(Collectors.toList());
+        KMeansProcessor clusteringProcessor = new KMeansProcessor();
+        String tableName = "votes2";
+        ConcurrentMap<ClusterCenter, List<Movie>> clusters = clusteringProcessor.doClustering(movieStorageHelper.getMovies(tableName));
+        movieClusters = clusters.keySet().stream()
+                .map(clusters::get)
+                .collect(Collectors.toList());
 
-        } catch (TasteException e) {
-            throw new IllegalArgumentException("Unable to create MySQL Data Model!", e);
+        List<UserNeighboursProcessor.UserVote> votes = template.query("select * from " + tableName, new BeanPropertyRowMapper<>(UserNeighboursProcessor.UserVote.class));
+        votesByUser = new HashMap<>();
+        for (UserNeighboursProcessor.UserVote userVote : votes) {
+            List<UserNeighboursProcessor.UserVote> userVotes = votesByUser.get(userVote.getUserId());
+            if (userVotes == null) {
+                userVotes = new ArrayList<>();
+                votesByUser.put(userVote.getUserId(), userVotes);
+            }
+            userVotes.add(userVote);
         }
     }
 
-    public List<RecommendedItem> getRecommendedMovies(Long userId) throws TasteException {
-        EntropyEstimator estimator = new EntropyEstimator(movieStorageHelper.getVotedMovies(userId), movieClusters);
+    public Map<Long, Double> getRecommendedMovies(Long userId) {
+        List<Movie> watchedMovies = movieClusters.stream()
+                .flatMap(Collection::stream)
+                .filter(movie -> movie.getVotes().stream()
+                        .filter(uv -> Objects.equals(uv.getUserId(), userId))
+                        .count() > 0)
+                .collect(Collectors.toList());
+
+        EntropyEstimator estimator = new EntropyEstimator(watchedMovies, movieClusters);
         if (!estimator.isEnough()) {
             throw new NotEnoughVotesException(-1);
         }
 
-        UserSimilarity similarity = new PearsonCorrelationSimilarity(dataModel);
-        UserNeighborhood neighborhood = new NearestNUserNeighborhood(5, similarity, dataModel);
-        GenericUserBasedRecommender recommender = new GenericUserBasedRecommender(dataModel, neighborhood, similarity);
+        UserNeighboursProcessor neighboursProcessor = new UserNeighboursProcessor(votesByUser);
+        Map<Long, Double> userNeighbours = neighboursProcessor.getUserNeighbours(userId, 5);
+        MovieMarkForecaster markForecaster = new MovieMarkForecaster(votesByUser);
 
-        return recommender.recommend(userId, 5);
+        return markForecaster.forecastMarks(5, userId, userNeighbours);
     }
 
     public List<Movie> getMoviesToVote(Long userId) {
-        // TODO: get most relevant movies (sort clusters by size&popularity, get splitters etc.)
         movieClusters.sort((l1, l2) -> l1.size() > l2.size() ? 1 : l1.size() < l2.size() ? -1 : 0);
-        List<Movie> watchedMovies = movieStorageHelper.getVotedMovies(userId);
+        List<Movie> watchedMovies = movieClusters.stream()
+                .flatMap(Collection::stream)
+                .filter(movie -> movie.getVotes().stream()
+                        .filter(uv -> Objects.equals(uv.getUserId(), userId))
+                        .count() > 0)
+                .collect(Collectors.toList());
 
         List<List<Movie>> notWatchedClusters = movieClusters.stream()
                 .filter(m -> intersection(m, watchedMovies).size() > 0)
@@ -93,11 +106,10 @@ public class TasteElicitationProcessor {
                 .collect(Collectors.toList());
     }
 
-    public static void main(String[] args) throws TasteException {
+    public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
-        TasteElicitationProcessor provider = context.getBean(TasteElicitationProcessor.class);
-        List<RecommendedItem> recommendedMovies = provider.getRecommendedMovies(4230l);
+        TasteElicitationProcessor elicitationProcessor = context.getBean(TasteElicitationProcessor.class);
+        Map<Long, Double> recommendedMovies = elicitationProcessor.getRecommendedMovies(1497l);
         System.out.println(recommendedMovies);
     }
-
 }

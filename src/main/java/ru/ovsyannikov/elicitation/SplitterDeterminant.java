@@ -1,7 +1,5 @@
 package ru.ovsyannikov.elicitation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import java.util.Collection;
@@ -14,8 +12,6 @@ import java.util.stream.Collectors;
  * @since 5/17/15
  */
 public class SplitterDeterminant {
-
-    private static final Logger logger = LoggerFactory.getLogger(SplitterDeterminant.class);
 
     public Movie getSplitter(List<Movie> movies) {
         // total
@@ -33,7 +29,7 @@ public class SplitterDeterminant {
             double lr2 = likers.stream().mapToDouble(uv -> uv.getVote() * uv.getVote()).sum();
             int ln = likers.size();
             // haters
-            List<Movie.UserVote> haters = getVoters(movie, uv -> uv.getVote() < 7);
+            List<Movie.UserVote> haters = getVoters(movie, uv -> uv.getVote() <= 7);
             double hr = haters.stream().mapToDouble(Movie.UserVote::getVote).sum();
             double hr2 = haters.stream().mapToDouble(uv -> uv.getVote() * uv.getVote()).sum();
             int hn = haters.size();

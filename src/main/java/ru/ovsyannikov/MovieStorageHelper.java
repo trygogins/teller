@@ -169,7 +169,7 @@ public class MovieStorageHelper {
                 "join movie_actors ma on m.movie_id = ma.movie_id join actors a on ma.actor_id = a.actor_id " +
                 "join movie_genres mg on m.movie_id = mg.movie_id join genres g on mg.genre_id = g.genre_id " +
                 "join movie_keywords mk on m.movie_id = mk.movie_id join keywords k on mk.keyword_id = k.keyword_id " +
-                "join votes5 v on m.kinopoisk_id = v.kinopoisk_id " +
+                "join votes2 v on m.kinopoisk_id = v.kinopoisk_id " +
                 "where m." + columnName + " in (" + StringUtils.join(ids, ",") + ") " +
                 "group by m.movie_id", MOVIE_EXTRACTOR);
     }

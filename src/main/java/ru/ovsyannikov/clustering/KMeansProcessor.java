@@ -176,15 +176,17 @@ public class KMeansProcessor {
             Movie maxDistanceMovie = null;
             double maxDistance = 0;
             for (Movie movie : movies) {
-                result.add(movie);
-                // выбирается фильм, при добавлении которого в набор достигается максимальное среднее расстояние между парами
-                double distance = getAverageDistance(new ArrayList<>(result));
-                if (distance > maxDistance) {
-                    maxDistanceMovie = movie;
-                    maxDistance = distance;
-                }
+                if (!result.contains(movie)) {
+                    result.add(movie);
+                    // выбирается фильм, при добавлении которого в набор достигается максимальное среднее расстояние между парами
+                    double distance = getAverageDistance(new ArrayList<>(result));
+                    if (distance > maxDistance) {
+                        maxDistanceMovie = movie;
+                        maxDistance = distance;
+                    }
 
-                result.remove(movie);
+                    result.remove(movie);
+                }
             }
 
             result.add(maxDistanceMovie);
@@ -196,7 +198,7 @@ public class KMeansProcessor {
     /**
      * Подсчёт среднего расстояния между парами фильмов в списке
      * @param movies – список фильмов
-     * @return – сумма расстояний между всеми парами, деленая на количество фильмов в списке movies
+     * @return – сумма расстояний между всеми парами, деленая на количество пар фильмов
      */
     private double getAverageDistance(List<Movie> movies) {
         int count = 0;

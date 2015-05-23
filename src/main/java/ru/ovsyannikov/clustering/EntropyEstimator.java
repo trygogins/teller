@@ -19,7 +19,7 @@ public class EntropyEstimator {
     }
 
     public boolean isEnough() {
-        return false;
+        return true;
     }
 
 }
