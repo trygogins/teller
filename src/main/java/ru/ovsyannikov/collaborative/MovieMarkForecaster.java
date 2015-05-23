@@ -1,5 +1,10 @@
 package ru.ovsyannikov.collaborative;
 
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import ru.ovsyannikov.Services;
+import ru.ovsyannikov.filtering.TasteElicitationProcessor;
+import ru.ovsyannikov.parsing.model.Movie;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -16,9 +21,6 @@ public class MovieMarkForecaster {
     }
 
     public Map<Long, Double> forecastMarks(int howMany, Long userId, Map<Long, Double> neighbours) {
-        Double removed = neighbours.remove(9974l);
-        neighbours.put(3781l, removed);
-
         Set<Long> possibleMoviesToRecommend = new HashSet<>();
         for (Long uId : userVotes.keySet()) {
             possibleMoviesToRecommend.addAll(CollectKinopoiskIds(uId));
@@ -105,4 +107,81 @@ public class MovieMarkForecaster {
                 .collect(Collectors.toSet());
     }
 
+    public static void main(String[] args) {
+
+        long userId = 1497l;
+        UserNeighboursProcessor firstProcessor = new UserNeighboursProcessor("votes_temp", Services.getTemplate());
+        Map<Long, List<UserNeighboursProcessor.UserVote>> userVotes = firstProcessor.getVotesByUser();
+        List<UserNeighboursProcessor.UserVote> allUserMarks = userVotes.get(userId);
+
+        UserNeighboursProcessor processor = new UserNeighboursProcessor("votes2", Services.getTemplate());
+        Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesChronological = processor.getVotesByUser();
+        userVotesChronological.put(userId, allUserMarks);
+
+        UserNeighboursProcessor tProcessor = new UserNeighboursProcessor("votes2", Services.getTemplate());
+        Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesActive = tProcessor.getVotesByUser();
+
+        ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
+        TasteElicitationProcessor tasteProcessor = context.getBean(TasteElicitationProcessor.class);
+
+
+        List<Movie> moviesToVote = tasteProcessor.getMoviesToVote(userId);
+        List<Long> toVoteIds = moviesToVote.stream().map(Movie::getKinopoiskId).collect(Collectors.toList());
+
+        MovieMarkForecaster markForecaster;
+        for (int i = 20; i > 0; i--) {
+            // готовим наборы для прогнозирования:
+            // 1) набор с оценками в хронологическом порядке
+            Map<Long, List<UserNeighboursProcessor.UserVote>> chronologicalVotes = limitUserVotesByDate(i, userId, userVotesChronological);
+            // 2) набор с оценками по порядку запрашивания системой
+            userVotesActive.put(userId, allUserMarks.stream()
+                    .filter(uv -> toVoteIds.contains(uv.getKinopoiskId()))
+                    .limit(i)
+                    .collect(Collectors.toList()));
+
+            // хронологическая часть
+            processor = new UserNeighboursProcessor(chronologicalVotes);
+            Map<Long, Double> neighbours = processor.getUserNeighbours(userId, 5);
+            System.out.println("Chronological neighbours: " + neighbours);
+            markForecaster = new MovieMarkForecaster(chronologicalVotes);
+            Map<Long, Double> chronologicalForecast = markForecaster.forecastMarks(5, userId, neighbours);
+            System.out.println("Chronological forecast: " + chronologicalForecast);
+            double error0 = evaluateForecast(allUserMarks, chronologicalForecast);
+
+            // активная часть (наша)
+            processor = new UserNeighboursProcessor(userVotesActive);
+            neighbours = processor.getUserNeighbours(userId, 5);
+            System.out.println("Active neighbours: " + neighbours);
+            markForecaster = new MovieMarkForecaster(userVotesActive);
+            Map<Long, Double> activeQueryingForecast = markForecaster.forecastMarks(5, userId, neighbours);
+            System.out.println("Active forecast: " + activeQueryingForecast);
+            double error1 = evaluateForecast(allUserMarks, activeQueryingForecast);
+
+            System.err.println("Chronological " + error0 + " vs. " + error1 + " Active");
+        }
+    }
+
+    public static Map<Long, List<UserNeighboursProcessor.UserVote>> limitUserVotesByDate(int howMany, long userId,
+                                                                                  Map<Long, List<UserNeighboursProcessor.UserVote>> userVotes) {
+        List<UserNeighboursProcessor.UserVote> restVotes = userVotes.get(userId).stream()
+                .sorted((o1, o2) -> o1.getDt().compareTo(o2.getDt()))
+                .limit(howMany)
+                .collect(Collectors.toList());
+        userVotes.put(userId, restVotes);
+
+        return userVotes;
+    }
+
+    public static Double evaluateForecast(List<UserNeighboursProcessor.UserVote> allUserMarks, Map<Long, Double> forecastedMarks) {
+        List<UserNeighboursProcessor.UserVote> actualUserMarks = allUserMarks.stream()
+                .filter(uv -> forecastedMarks.containsKey(uv.getKinopoiskId()))
+                .collect(Collectors.toList());
+
+        double error = 0.0;
+        for (UserNeighboursProcessor.UserVote userMark : actualUserMarks) {
+            error += Math.abs(userMark.getVote() - forecastedMarks.get(userMark.getKinopoiskId()));
+        }
+
+        return error / actualUserMarks.size();
+    }
 }

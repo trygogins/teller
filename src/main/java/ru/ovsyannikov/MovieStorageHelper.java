@@ -38,7 +38,7 @@ public class MovieStorageHelper {
             movie.setDirector(resultSet.getString("director"));
             movie.setActors(Arrays.asList(StringUtils.split(resultSet.getString("actors"), ",")));
             movie.setGenres(Arrays.asList(StringUtils.split(resultSet.getString("genres"), ",")));
-            movie.setKeywords(Arrays.asList(StringUtils.split(resultSet.getString("keywords"), ",")));
+//            movie.setKeywords(Arrays.asList(StringUtils.split(resultSet.getString("keywords"), ",")));
 
             List<String> votes = Arrays.asList(StringUtils.split(resultSet.getString("user_votes"), ","));
             movie.setVotes(votes.stream()
@@ -164,11 +164,10 @@ public class MovieStorageHelper {
 
     private List<Movie> getMovies(List<Long> ids, String columnName) {
         return template.query("select m.*, group_concat(distinct a.name) as actors, group_concat(distinct g.genre) as genres, " +
-                "group_concat(distinct k.name) as keywords, group_concat(distinct v.user_id, '-', v.vote) as user_votes " +
+                "group_concat(distinct v.user_id, '-', v.vote) as user_votes " +
                 "from movies m " +
                 "join movie_actors ma on m.movie_id = ma.movie_id join actors a on ma.actor_id = a.actor_id " +
                 "join movie_genres mg on m.movie_id = mg.movie_id join genres g on mg.genre_id = g.genre_id " +
-                "join movie_keywords mk on m.movie_id = mk.movie_id join keywords k on mk.keyword_id = k.keyword_id " +
                 "join votes2 v on m.kinopoisk_id = v.kinopoisk_id " +
                 "where m." + columnName + " in (" + StringUtils.join(ids, ",") + ") " +
                 "group by m.movie_id", MOVIE_EXTRACTOR);

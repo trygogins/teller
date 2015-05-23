@@ -3,7 +3,6 @@ package ru.ovsyannikov.collaborative;
 import org.joda.time.DateTime;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
-import ru.ovsyannikov.Services;
 
 import java.sql.Timestamp;
 import java.util.*;
@@ -34,20 +33,16 @@ public class UserNeighboursProcessor {
         this.votesByUser = votesByUser;
     }
 
-    public Map<Long, Double> getUserNeighbours(long userId, int howMany) {
-        return getNNeighbours(userId, howMany, votesByUser);
-    }
-
     /**
      * Вычисляет N ближайших соседей данного пользователя
      */
-    private Map<Long, Double> getNNeighbours(long userId, int howMany, Map<Long, List<UserVote>> userVotes) {
+    public Map<Long, Double> getUserNeighbours(long userId, int howMany) {
         Map<Long, Double> result = new HashMap<>();
         TreeMap<Long, Double> sorted = new TreeMap<>(new ValueComparator(result));
-        List<UserVote> targetUserVotes = userVotes.get(userId);
-        userVotes.keySet().stream()
+        List<UserVote> targetUserVotes = votesByUser.get(userId);
+        votesByUser.keySet().stream()
                 .filter(uId -> !uId.equals(userId))
-                .forEach(uId -> result.put(uId, getUsersSimilarity(targetUserVotes, userVotes.get(uId))));
+                .forEach(uId -> result.put(uId, getUsersSimilarity(targetUserVotes, votesByUser.get(uId))));
 
         sorted.putAll(result);
         return sorted.keySet().stream().limit(howMany).collect(Collectors.toMap(k -> k, result::get));
@@ -167,14 +162,5 @@ public class UserNeighboursProcessor {
                 return 1;
             }
         }
-    }
-
-    public static void main(String[] args) {
-        UserNeighboursProcessor processor = new UserNeighboursProcessor("votes2", Services.getTemplate());
-
-        Map<Long, Double> userNeighbours = processor.getUserNeighbours(1497l, 5);
-        MovieMarkForecaster markForecaster = new MovieMarkForecaster(processor.getVotesByUser());
-        Map<Long, Double> forecastedMarks = markForecaster.forecastMarks(5, 1497l, userNeighbours);
-        System.out.println(forecastedMarks);
     }
 }

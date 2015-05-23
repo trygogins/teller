@@ -79,6 +79,7 @@ public class KMeansProcessor {
             clusteredMovies.putAll(performClustering(moviesToRecompute, targetClustersCount - clusteredMovies.size()));
         }
 
+        clusteredMovies.remove(new ClusterCenter(Collections.emptyList()));
         return clusteredMovies;
     }
 
@@ -243,11 +244,11 @@ public class KMeansProcessor {
                     (1 - ComparisonUtils.getListsSimilarity(directorsList, Arrays.asList(movie.getDirector())));
             dist += directorsDistance * directorsDistance;
         }
-        for (List<String> keywordsList : center.getKeywords().keySet()) {
-            double keywordsDistance = (double) center.getKeywords().get(keywordsList) / center.getNc() *
-                    (1 - ComparisonUtils.getListsSimilarity(keywordsList, movie.getKeywords()));
-            dist += keywordsDistance * keywordsDistance;
-        }
+//        for (List<String> keywordsList : center.getKeywords().keySet()) {
+//            double keywordsDistance = (double) center.getKeywords().get(keywordsList) / center.getNc() *
+//                    (1 - ComparisonUtils.getListsSimilarity(keywordsList, movie.getKeywords()));
+//            dist += keywordsDistance * keywordsDistance;
+//        }
 
         return dist * Math.sqrt(center.getNc());
     }

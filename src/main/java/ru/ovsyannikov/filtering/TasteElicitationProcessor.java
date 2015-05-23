@@ -45,7 +45,8 @@ public class TasteElicitationProcessor {
     public void init() {
         KMeansProcessor clusteringProcessor = new KMeansProcessor();
         String tableName = "votes2";
-        ConcurrentMap<ClusterCenter, List<Movie>> clusters = clusteringProcessor.doClustering(movieStorageHelper.getMovies(tableName));
+        List<Movie> movies = movieStorageHelper.getMovies(tableName);
+        ConcurrentMap<ClusterCenter, List<Movie>> clusters = clusteringProcessor.doClustering(movies);
         movieClusters = clusters.keySet().stream()
                 .map(clusters::get)
                 .collect(Collectors.toList());
@@ -83,7 +84,7 @@ public class TasteElicitationProcessor {
     }
 
     public List<Movie> getMoviesToVote(Long userId) {
-        movieClusters.sort((l1, l2) -> l1.size() > l2.size() ? 1 : l1.size() < l2.size() ? -1 : 0);
+        movieClusters.sort((l1, l2) -> l1.size() > l2.size() ? -1 : l1.size() < l2.size() ? 1 : 0);
         List<Movie> watchedMovies = movieClusters.stream()
                 .flatMap(Collection::stream)
                 .filter(movie -> movie.getVotes().stream()
@@ -92,7 +93,7 @@ public class TasteElicitationProcessor {
                 .collect(Collectors.toList());
 
         List<List<Movie>> notWatchedClusters = movieClusters.stream()
-                .filter(m -> intersection(m, watchedMovies).size() > 0)
+                //.filter(m -> intersection(m, watchedMovies).size() > 0)
                 .collect(Collectors.toList());
 
         return notWatchedClusters.stream()
