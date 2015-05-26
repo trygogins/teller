@@ -9,6 +9,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
+ * NOTE:
+ * the following code is based on {@link org.apache.mahout.cf.taste.impl.recommender.GenericUserBasedRecommender},
+ * so, please, refer that class for more documentation
+ *
  * @author Georgii Ovsiannikov
  * @since 5/23/15
  */
