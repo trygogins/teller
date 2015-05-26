@@ -109,56 +109,74 @@ public class MovieMarkForecaster {
 
     public static void main(String[] args) {
 
-        long userId = 1497l;
-        UserNeighboursProcessor firstProcessor = new UserNeighboursProcessor("votes_temp", Services.getTemplate());
-        Map<Long, List<UserNeighboursProcessor.UserVote>> userVotes = firstProcessor.getVotesByUser();
-        List<UserNeighboursProcessor.UserVote> allUserMarks = userVotes.get(userId);
-
-        UserNeighboursProcessor processor = new UserNeighboursProcessor("votes2", Services.getTemplate());
-        Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesChronological = processor.getVotesByUser();
-        userVotesChronological.put(userId, allUserMarks);
-
-        UserNeighboursProcessor tProcessor = new UserNeighboursProcessor("votes2", Services.getTemplate());
-        Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesActive = tProcessor.getVotesByUser();
-
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         TasteElicitationProcessor tasteProcessor = context.getBean(TasteElicitationProcessor.class);
 
-
-        List<Movie> moviesToVote = tasteProcessor.getMoviesToVote(userId);
-        List<Long> toVoteIds = moviesToVote.stream().map(Movie::getKinopoiskId).collect(Collectors.toList());
-
-        MovieMarkForecaster markForecaster;
-        for (int i = 20; i > 0; i--) {
-            // готовим наборы для прогнозирования:
-            // 1) набор с оценками в хронологическом порядке
-            Map<Long, List<UserNeighboursProcessor.UserVote>> chronologicalVotes = limitUserVotesByDate(i, userId, userVotesChronological);
-            // 2) набор с оценками по порядку запрашивания системой
-            userVotesActive.put(userId, allUserMarks.stream()
-                    .filter(uv -> toVoteIds.contains(uv.getKinopoiskId()))
-                    .limit(i)
-                    .collect(Collectors.toList()));
-
-            // хронологическая часть
-            processor = new UserNeighboursProcessor(chronologicalVotes);
-            Map<Long, Double> neighbours = processor.getUserNeighbours(userId, 5);
-            System.out.println("Chronological neighbours: " + neighbours);
-            markForecaster = new MovieMarkForecaster(chronologicalVotes);
-            Map<Long, Double> chronologicalForecast = markForecaster.forecastMarks(5, userId, neighbours);
-            System.out.println("Chronological forecast: " + chronologicalForecast);
-            double error0 = evaluateForecast(allUserMarks, chronologicalForecast);
-
-            // активная часть (наша)
-            processor = new UserNeighboursProcessor(userVotesActive);
-            neighbours = processor.getUserNeighbours(userId, 5);
-            System.out.println("Active neighbours: " + neighbours);
-            markForecaster = new MovieMarkForecaster(userVotesActive);
-            Map<Long, Double> activeQueryingForecast = markForecaster.forecastMarks(5, userId, neighbours);
-            System.out.println("Active forecast: " + activeQueryingForecast);
-            double error1 = evaluateForecast(allUserMarks, activeQueryingForecast);
-
-            System.err.println("Chronological " + error0 + " vs. " + error1 + " Active");
+        List<Long> userIds = Arrays.asList(1497l, 4230l, 3404l, 6324l, 1585l, 5613l, 5470l, 5892l, 6523l, 3204l);
+        double[] errors0 = new double[10];
+        double[] errors1 = new double[10];
+        for (int i = 0; i < 10; i++) {
+            errors0[i] = 0;
+            errors1[i] = 0;
         }
+
+        for (int k = 0; k < 10; k++) {
+            long userId = userIds.get(k);
+
+            UserNeighboursProcessor firstProcessor = new UserNeighboursProcessor("votes", Services.getTemplate());
+            Map<Long, List<UserNeighboursProcessor.UserVote>> userVotes = firstProcessor.getVotesByUser();
+            List<UserNeighboursProcessor.UserVote> allUserMarks = userVotes.get(userId);
+
+            UserNeighboursProcessor processor = new UserNeighboursProcessor("votes2", Services.getTemplate());
+            Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesChronological = processor.getVotesByUser();
+            userVotesChronological.put(userId, allUserMarks);
+
+            UserNeighboursProcessor tProcessor = new UserNeighboursProcessor("votes2", Services.getTemplate());
+            Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesActive = tProcessor.getVotesByUser();
+
+            List<Movie> moviesToVote = tasteProcessor.getMoviesToVote(userId);
+            List<Long> toVoteIds = moviesToVote.stream().map(Movie::getKinopoiskId).collect(Collectors.toList());
+
+            MovieMarkForecaster markForecaster;
+            for (int i = 20; i > 0; i--) {
+                // готовим наборы для прогнозирования:
+                // 1) набор с оценками в хронологическом порядке
+                Map<Long, List<UserNeighboursProcessor.UserVote>> chronologicalVotes = limitUserVotesByDate(i, userId, userVotesChronological);
+                // 2) набор с оценками по порядку запрашивания системой
+                userVotesActive.put(userId, allUserMarks.stream()
+                        .filter(uv -> toVoteIds.contains(uv.getKinopoiskId()))
+                        .limit(i)
+                        .collect(Collectors.toList()));
+
+                // хронологическая часть
+                processor = new UserNeighboursProcessor(chronologicalVotes);
+                Map<Long, Double> neighbours = processor.getUserNeighbours(userId, 5);
+                System.out.println("Chronological neighbours: " + neighbours);
+                markForecaster = new MovieMarkForecaster(chronologicalVotes);
+                Map<Long, Double> chronologicalForecast = markForecaster.forecastMarks(5, userId, neighbours);
+                System.out.println("Chronological forecast: " + chronologicalForecast);
+                double error0 = evaluateForecast(allUserMarks, chronologicalForecast);
+
+                // активная часть (наша)
+                processor = new UserNeighboursProcessor(userVotesActive);
+                neighbours = processor.getUserNeighbours(userId, 5);
+                System.out.println("Active neighbours: " + neighbours);
+                markForecaster = new MovieMarkForecaster(userVotesActive);
+                Map<Long, Double> activeQueryingForecast = markForecaster.forecastMarks(5, userId, neighbours);
+                System.out.println("Active forecast: " + activeQueryingForecast);
+                double error1 = evaluateForecast(allUserMarks, activeQueryingForecast);
+
+                System.err.println("Chronological " + error0 + " vs. " + error1 + " Active");
+                errors0[k] += error0;
+                errors1[k] += error1;
+            }
+
+            errors0[k] /= 10;
+            errors1[k] /= 10;
+        }
+
+        System.out.println(Arrays.toString(errors0));
+        System.out.println(Arrays.toString(errors1));
     }
 
     public static Map<Long, List<UserNeighboursProcessor.UserVote>> limitUserVotesByDate(int howMany, long userId,
