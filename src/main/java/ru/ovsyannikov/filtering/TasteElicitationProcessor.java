@@ -4,8 +4,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.MovieStorageHelper;
 import ru.ovsyannikov.clustering.EntropyEstimator;
@@ -18,7 +20,10 @@ import ru.ovsyannikov.exceptions.NotEnoughVotesException;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
@@ -46,10 +51,19 @@ public class TasteElicitationProcessor {
         KMeansProcessor clusteringProcessor = new KMeansProcessor();
         String tableName = "votes2";
         List<Movie> movies = movieStorageHelper.getMovies(tableName);
-        ConcurrentMap<ClusterCenter, List<Movie>> clusters = clusteringProcessor.doClustering(movies);
-        movieClusters = clusters.keySet().stream()
-                .map(clusters::get)
-                .collect(Collectors.toList());
+        ConcurrentMap<ClusterCenter, List<Movie>> clusters = new ConcurrentHashMap(); //clusteringProcessor.doClustering(movies);
+        movieClusters = getClustersLazy(movies);
+
+//                clusters.keySet().stream()
+//                        .map(clusters::get)
+//                        .collect(Collectors.toList());
+
+        for (int i = 0; i < movieClusters.size(); i++) {
+            List<Movie> cluster = movieClusters.get(i);
+            for (Movie aMovie : cluster) {
+                template.update("insert into movie_clusters values (?, ?)", aMovie.getId(), i);
+            }
+        }
 
         List<UserNeighboursProcessor.UserVote> votes = template.query("select * from " + tableName, new BeanPropertyRowMapper<>(UserNeighboursProcessor.UserVote.class));
         votesByUser = new HashMap<>();
@@ -61,6 +75,36 @@ public class TasteElicitationProcessor {
             }
             userVotes.add(userVote);
         }
+    }
+
+    public List<List<Movie>> getClustersLazy(List<Movie> movies) {
+        Map<Long, Integer> clusters = template.query("select * from movie_clusters", new ResultSetExtractor<Map<Long, Integer>>() {
+            @Override
+            public Map<Long, Integer> extractData(ResultSet resultSet) throws SQLException, DataAccessException {
+                Map<Long, Integer> result = new HashMap<>();
+                while (resultSet.next()) {
+                    result.put(resultSet.getLong("movie_id"), resultSet.getInt("cluster"));
+                }
+
+                return result;
+            }
+        });
+
+        Map<Integer, List<Movie>> clusteredMovies = new HashMap<>();
+        for (Movie movie : movies) {
+            Integer clusterId = clusters.get(movie.getId());
+            List<Movie> moviesInCluster = clusteredMovies.get(clusterId);
+            if (moviesInCluster == null) {
+                moviesInCluster = new ArrayList<>();
+                clusteredMovies.put(clusterId, moviesInCluster);
+            }
+
+            moviesInCluster.add(movie);
+        }
+
+        return clusteredMovies.keySet().stream()
+                .map(clusteredMovies::get)
+                .collect(Collectors.toList());
     }
 
     public Map<Long, Double> getRecommendedMovies(Long userId) {
@@ -105,6 +149,10 @@ public class TasteElicitationProcessor {
         return movies1.stream()
                 .filter(movies2::contains)
                 .collect(Collectors.toList());
+    }
+
+    public List<List<Movie>> getMovieClusters() {
+        return movieClusters;
     }
 
     public static void main(String[] args) {

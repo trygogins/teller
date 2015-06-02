@@ -133,7 +133,7 @@ public class MovieStorageHelper {
     }
 
     public List<Movie> getVotedMovies(Long userId) {
-        return getMoviesByKinopoiskId(template.query("select distinct kinopoisk_id from votes where user_id = ?",
+        return getMoviesByKinopoiskId(template.query("select distinct kinopoisk_id from votes2 where user_id = ?",
                 new SingleColumnRowMapper<>(Long.class), userId));
     }
 

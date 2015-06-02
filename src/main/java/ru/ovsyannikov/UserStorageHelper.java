@@ -25,6 +25,10 @@ public class UserStorageHelper {
                 new BeanPropertyRowMapper<>(User.class));
     }
 
+    public Long getUserId(String username) {
+        return template.queryForObject("select user_id from users where username = ?", Long.class, username);
+    }
+
     public User getUser(Long userId) {
         List<User> users = getUsers(Arrays.asList(userId));
         if (users.isEmpty()) {
