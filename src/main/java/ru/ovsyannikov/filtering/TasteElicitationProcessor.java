@@ -51,7 +51,7 @@ public class TasteElicitationProcessor {
         KMeansProcessor clusteringProcessor = new KMeansProcessor();
         String tableName = "votes2";
         List<Movie> movies = movieStorageHelper.getMovies(tableName);
-        ConcurrentMap<ClusterCenter, List<Movie>> clusters = new ConcurrentHashMap(); //clusteringProcessor.doClustering(movies);
+        ConcurrentMap<ClusterCenter, List<Movie>> clusters = new ConcurrentHashMap<>(); //clusteringProcessor.doClustering(movies);
         movieClusters = getClustersLazy(movies);
 
 //                clusters.keySet().stream()
