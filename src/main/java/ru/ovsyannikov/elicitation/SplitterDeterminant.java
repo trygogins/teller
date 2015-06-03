@@ -14,6 +14,10 @@ import java.util.stream.Collectors;
 public class SplitterDeterminant {
 
     public Movie getSplitter(List<Movie> movies) {
+        if (movies.isEmpty()) {
+            return null;
+        }
+
         // total
         double r = movies.stream().map(Movie::getVotes).flatMap(Collection::stream).mapToDouble(Movie.UserVote::getVote).sum();
         double r2 = movies.stream().map(Movie::getVotes).flatMap(Collection::stream).mapToDouble(uv -> uv.getVote() * uv.getVote()).sum();

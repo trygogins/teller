@@ -137,8 +137,8 @@ public class MovieStorageHelper {
                 new SingleColumnRowMapper<>(Long.class), userId));
     }
 
-    public int setMovieVote(Long userId, Long movieId, Integer vote) {
-        return template.update("insert into votes values (?,?,now(),?)", userId, movieId, vote);
+    public int setMovieVote(Long userId, Long kinopoiskId, Integer vote) {
+        return template.update("replace into votes2 values (?,?,now(),?)", userId, kinopoiskId, vote);
     }
 
     public List<Movie> getMoviesToVote(Long userId) {
@@ -173,11 +173,14 @@ public class MovieStorageHelper {
                 "group by m.movie_id", MOVIE_EXTRACTOR);
     }
 
+    public void deleteMark(Long userId, Long kinopoiskId) {
+        template.update("delete from votes2 where user_id = ? and kinopoisk_id = ?", userId, kinopoiskId);
+    }
+
     public static void main(String[] args) {
         ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("application-context.xml");
         MovieStorageHelper helper = context.getBean(MovieStorageHelper.class);
         List<Movie> movie = helper.getMovies(Arrays.asList(2l, 5l));
         System.out.println(movie);
     }
-
 }

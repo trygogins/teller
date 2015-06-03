@@ -14,7 +14,6 @@ import ru.ovsyannikov.clustering.KMeansProcessor;
 import ru.ovsyannikov.clustering.model.ClusterCenter;
 import ru.ovsyannikov.collaborative.MovieMarkForecaster;
 import ru.ovsyannikov.collaborative.UserNeighboursProcessor;
-import ru.ovsyannikov.elicitation.SplitterDeterminant;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
@@ -41,7 +40,6 @@ public class TasteElicitationProcessor {
     private JdbcTemplate template;
 
     private List<List<Movie>> movieClusters;
-    private SplitterDeterminant splitterDeterminant = new SplitterDeterminant();
     // user_id -> list of marks
     private Map<Long, List<UserNeighboursProcessor.UserVote>> votesByUser;
 
@@ -140,7 +138,7 @@ public class TasteElicitationProcessor {
     /**
      * Метод возвращает список кластеров, фильмы из которых пользователь ещё не посмотрел
      * @param userId текущий пользователь
-     * @return список списков фильмов
+     * @return список списков фильмов, отсортированный по убыванию размера кластера
      */
     public List<List<Movie>> getMoviesToVote(Long userId) {
         movieClusters.sort((l1, l2) -> l1.size() > l2.size() ? -1 : l1.size() < l2.size() ? 1 : 0);
@@ -164,6 +162,10 @@ public class TasteElicitationProcessor {
 
     public List<List<Movie>> getMovieClusters() {
         return movieClusters;
+    }
+
+    public Map<Long, List<UserNeighboursProcessor.UserVote>> getVotesByUser() {
+        return votesByUser;
     }
 
     public static void main(String[] args) {

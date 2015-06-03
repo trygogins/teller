@@ -42,6 +42,26 @@ public class Movie {
         public void setVote(Integer vote) {
             this.vote = vote;
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            UserVote userVote = (UserVote) o;
+
+            if (userId != null ? !userId.equals(userVote.userId) : userVote.userId != null) return false;
+            if (vote != null ? !vote.equals(userVote.vote) : userVote.vote != null) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = userId != null ? userId.hashCode() : 0;
+            result = 31 * result + (vote != null ? vote.hashCode() : 0);
+            return result;
+        }
     }
 
     private Long id;
