@@ -10,13 +10,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.stereotype.Service;
 import ru.ovsyannikov.MovieStorageHelper;
-import ru.ovsyannikov.clustering.EntropyEstimator;
 import ru.ovsyannikov.clustering.KMeansProcessor;
 import ru.ovsyannikov.clustering.model.ClusterCenter;
 import ru.ovsyannikov.collaborative.MovieMarkForecaster;
 import ru.ovsyannikov.collaborative.UserNeighboursProcessor;
 import ru.ovsyannikov.elicitation.SplitterDeterminant;
-import ru.ovsyannikov.exceptions.NotEnoughVotesException;
 import ru.ovsyannikov.parsing.model.Movie;
 
 import javax.annotation.PostConstruct;
@@ -44,6 +42,7 @@ public class TasteElicitationProcessor {
 
     private List<List<Movie>> movieClusters;
     private SplitterDeterminant splitterDeterminant = new SplitterDeterminant();
+    // user_id -> list of marks
     private Map<Long, List<UserNeighboursProcessor.UserVote>> votesByUser;
 
     @PostConstruct
@@ -100,6 +99,11 @@ public class TasteElicitationProcessor {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Метод возвращает мапу не просмотренных, но рекомендуемых к просмотру пользователем
+     * @param userId текущий пользователь
+     * @return map: key – kinopoisk_id, value – прогнозируемая оценка
+     */
     public Map<Long, Double> getRecommendedMovies(Long userId) {
         List<Movie> watchedMovies = movieClusters.stream()
                 .flatMap(Collection::stream)
@@ -108,19 +112,37 @@ public class TasteElicitationProcessor {
                         .count() > 0)
                 .collect(Collectors.toList());
 
-        EntropyEstimator estimator = new EntropyEstimator(watchedMovies, movieClusters);
-        if (!estimator.isEnough()) {
-            throw new NotEnoughVotesException(-1);
+        // кластеры, фильмы из которых пользователь видел
+        List<List<Movie>> watchedClusters = movieClusters.stream()
+                .filter(m -> intersection(m, watchedMovies).size() > 0)
+                .collect(Collectors.toList());
+
+        List<Long> movieIdsInWatchedClusters = watchedClusters.stream()
+                .flatMap(Collection::stream)
+                .map(Movie::getKinopoiskId)
+                .collect(Collectors.toList());
+
+        Map<Long, List<UserNeighboursProcessor.UserVote>> localVotesByUser = new HashMap<>();
+        for (Long uId : votesByUser.keySet()) {
+            List<UserNeighboursProcessor.UserVote> userVotes = votesByUser.get(uId);
+            localVotesByUser.put(uId, userVotes.stream()
+                    .filter(m -> movieIdsInWatchedClusters.contains(m.getKinopoiskId()))
+                    .collect(Collectors.toList()));
         }
 
-        UserNeighboursProcessor neighboursProcessor = new UserNeighboursProcessor(votesByUser);
+        UserNeighboursProcessor neighboursProcessor = new UserNeighboursProcessor(localVotesByUser);
         Map<Long, Double> userNeighbours = neighboursProcessor.getUserNeighbours(userId, 5);
-        MovieMarkForecaster markForecaster = new MovieMarkForecaster(votesByUser);
+        MovieMarkForecaster markForecaster = new MovieMarkForecaster(localVotesByUser);
 
         return markForecaster.forecastMarks(5, userId, userNeighbours);
     }
 
-    public List<Movie> getMoviesToVote(Long userId) {
+    /**
+     * Метод возвращает список кластеров, фильмы из которых пользователь ещё не посмотрел
+     * @param userId текущий пользователь
+     * @return список списков фильмов
+     */
+    public List<List<Movie>> getMoviesToVote(Long userId) {
         movieClusters.sort((l1, l2) -> l1.size() > l2.size() ? -1 : l1.size() < l2.size() ? 1 : 0);
         List<Movie> watchedMovies = movieClusters.stream()
                 .flatMap(Collection::stream)
@@ -129,12 +151,8 @@ public class TasteElicitationProcessor {
                         .count() > 0)
                 .collect(Collectors.toList());
 
-        List<List<Movie>> notWatchedClusters = movieClusters.stream()
-                //.filter(m -> intersection(m, watchedMovies).size() > 0)
-                .collect(Collectors.toList());
-
-        return notWatchedClusters.stream()
-                .map(splitterDeterminant::getSplitter)
+        return movieClusters.stream()
+                .filter(m -> intersection(m, watchedMovies).size() == 0)
                 .collect(Collectors.toList());
     }
 

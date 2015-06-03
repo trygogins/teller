@@ -138,7 +138,10 @@ public class MovieMarkForecaster {
             UserNeighboursProcessor tProcessor = new UserNeighboursProcessor("votes2", Services.getTemplate());
             Map<Long, List<UserNeighboursProcessor.UserVote>> userVotesActive = tProcessor.getVotesByUser();
 
-            List<Movie> moviesToVote = tasteProcessor.getMoviesToVote(userId);
+            List<Movie> moviesToVote = tasteProcessor.getMoviesToVote(userId).stream()
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList());
+
             List<Long> toVoteIds = moviesToVote.stream().map(Movie::getKinopoiskId).collect(Collectors.toList());
 
             MovieMarkForecaster markForecaster;
