@@ -58,13 +58,6 @@ public class TasteElicitationProcessor {
 //                        .map(clusters::get)
 //                        .collect(Collectors.toList());
 
-        for (int i = 0; i < movieClusters.size(); i++) {
-            List<Movie> cluster = movieClusters.get(i);
-            for (Movie aMovie : cluster) {
-                template.update("insert into movie_clusters values (?, ?)", aMovie.getId(), i);
-            }
-        }
-
         List<UserNeighboursProcessor.UserVote> votes = template.query("select * from " + tableName, new BeanPropertyRowMapper<>(UserNeighboursProcessor.UserVote.class));
         votesByUser = new HashMap<>();
         for (UserNeighboursProcessor.UserVote userVote : votes) {
