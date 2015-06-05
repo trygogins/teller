@@ -1,5 +1,6 @@
 package ru.ovsyannikov;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -163,6 +164,10 @@ public class MovieStorageHelper {
     }
 
     private List<Movie> getMovies(List<Long> ids, String columnName) {
+        if (CollectionUtils.isEmpty(ids)) {
+            return new ArrayList<>();
+        }
+
         return template.query("select m.*, group_concat(distinct a.name) as actors, group_concat(distinct g.genre) as genres, " +
                 "group_concat(distinct v.user_id, '-', v.vote) as user_votes " +
                 "from movies m " +
