@@ -106,7 +106,12 @@ public class MovieMarkForecaster {
      * Take all distinct kinopoiskIds of movies
      */
     private Set<Long> CollectKinopoiskIds(Long userId) {
-        return userVotes.get(userId).stream()
+        List<UserNeighboursProcessor.UserVote> uVotes = userVotes.get(userId);
+        if (uVotes == null) {
+            return new HashSet<>();
+        }
+
+        return uVotes.stream()
                 .map(UserNeighboursProcessor.UserVote::getKinopoiskId)
                 .collect(Collectors.toSet());
     }

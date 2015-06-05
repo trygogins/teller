@@ -53,6 +53,10 @@ public class UserNeighboursProcessor {
     }
 
     private Double getUsersSimilarity(List<UserVote> user1Votes, List<UserVote> user2Votes) {
+        if (user1Votes == null || user2Votes == null) {
+            return Double.NaN;
+        }
+
         double sumXY = 0;
         double sumX = 0;
         double sumX2 = 0;

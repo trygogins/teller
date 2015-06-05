@@ -136,7 +136,7 @@ public class TasteElicitationProcessor {
     }
 
     /**
-     * Метод возвращает список кластеров, фильмы из которых пользователь ещё не посмотрел
+     * Метод возвращает список кластеров, фильмы из которых пользователь ещё не достаточно оценил (sqrt(n/2))
      * @param userId текущий пользователь
      * @return список списков фильмов, отсортированный по убыванию размера кластера
      */
@@ -150,7 +150,7 @@ public class TasteElicitationProcessor {
                 .collect(Collectors.toList());
 
         return movieClusters.stream()
-                .filter(m -> intersection(m, watchedMovies).size() == 0)
+                .filter(m -> intersection(m, watchedMovies).size() <= Math.sqrt(m.size() / 2))
                 .collect(Collectors.toList());
     }
 
