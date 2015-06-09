@@ -257,4 +257,18 @@ public class Movie {
                 ", title='" + title + '\'' +
                 '}';
     }
+
+    public Movie getCopy() {
+        Movie movie = new Movie(this.getTitle(), this.getDirector(), this.getGenres(), this.getActors());
+        movie.setId(this.getId());
+        movie.setKinopoiskId(this.getKinopoiskId());
+        movie.setKeywords(this.getKeywords());
+        movie.setYear(this.getYear());
+        List<UserVote> userVotes = this.getVotes().stream()
+                .map(userVote -> new UserVote(userVote.getUserId(), userVote.getVote()))
+                .collect(Collectors.toList());
+        movie.setVotes(userVotes);
+
+        return movie;
+    }
 }
